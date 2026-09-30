@@ -1,0 +1,10 @@
+{
+  "description": "Facilitates resource requests and reservations for educators and librarians with clear status tracking, conflict management, and role-based access.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

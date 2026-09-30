@@ -1,0 +1,78 @@
+# ==========================================
+# Entornos y Archivos Sensibles (Global)
+# ==========================================
+.env
+.env*.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.pem
+*.key
+*.cert
+
+# Archivos de Sistema Operativo e IDEs
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Log files
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================================
+# Python / Flask (Backend)
+# ==========================================
+# Entornos virtuales
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Caché y bytecode de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Bases de datos SQLite de desarrollo/pruebas
+*.db
+*.sqlite
+*.sqlite3
+instance/
+
+# Flask / Testing / Cobertura
+.pytest_cache/
+.coverage
+htmlcov/
+.dist/
+build/
+dist/
+*.egg-info/
+
+# ==========================================
+# Next.js / Node.js (Frontend)
+# ==========================================
+# Dependencias
+node_modules/
+.pnp
+.pnp.js
+
+# Build / Output de Next.js
+.next/
+out/
+build/
+
+# Caché de Next.js y Turbo
+.turbo/
+.vercel/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
