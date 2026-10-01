@@ -144,30 +144,66 @@ function NavLink({ to, end = false, className, children, ...props }: NavLinkProp
   )
 }
 
-type Status = "PENDIENTE" | "CONFIRMADA" | "RECHAZADA"
-type Role = "docente" | "bibliotecaria"
+// -------------------------------------------------------------
+// MODELOS Y TIPOS AJUSTADOS SEGÚN ESTRUCTURA BACKEND JSON
+// -------------------------------------------------------------
+type Role = "docente" | "bibliotecaria" | "admin"
+type UserStatus = "ACTIVO" | "INACTIVO" | "SUSPENDIDO"
+type Status = "PENDIENTE" | "CONFIRMADA" | "RECHAZADA" | "CANCELADA"
+type ResourceCategory = "Equipamiento" | "Espacios" | "Material bibliográfico"
+type ResourceCondition = "EXCELENTE" | "BUENO" | "EN_MANTENIMIENTO" | "FUERA_DE_SERVICIO"
+type Shift = "Mañana · 08:00–12:00" | "Tarde · 13:00–17:00"
+type Module =
+    | "Módulo 1 · 08:00–09:20"
+    | "Módulo 2 · 09:30–10:50"
+    | "Módulo 3 · 11:00–12:00"
+    | "Módulo 1 · 13:00–14:20"
+    | "Módulo 2 · 14:30–15:50"
+    | "Módulo 3 · 16:00–17:00"
+
 type Scenario = "normal" | "empty" | "connection" | "load"
+
 type Resource = {
   id: string
   name: string
-  category: string
+  category: ResourceCategory
   description: string
   info: string
-  icon: LucideIcon
+  icon: string
   available: boolean
+  condition?: ResourceCondition
+  serialNumber?: string
+  location?: string
   tone: string
 }
+
 type Request = {
   id: string
-  resource: string
+  resourceId: string
+  userId: string
   teacher: string
   date: string
-  shift: string
-  module: string
-  notes: string
+  shift: Shift | string
+  module: Module | string
+  notes?: string
   status: Status
   created: string
-  reviewed?: string
+  reviewedBy?: string | null
+  reviewedAt?: string | null
+}
+
+// Mapeador de strings de iconos a componentes Lucide
+const iconMap: Record<string, LucideIcon> = {
+  Projector,
+  Armchair,
+  Laptop,
+  Volume2,
+  BookMarked,
+  Tablet,
+}
+
+const getResourceIcon = (iconName: string): LucideIcon => {
+  return iconMap[iconName] || Info
 }
 
 const resources: Resource[] = [
@@ -177,8 +213,10 @@ const resources: Resource[] = [
     category: "Equipamiento",
     description: "Presentaciones, clases y contenido audiovisual en el aula.",
     info: "Incluye cable HDMI y control remoto. Retiro en biblioteca.",
-    icon: Projector,
+    icon: "Projector",
     available: true,
+    condition: "EXCELENTE",
+    location: "Estante 3 - Depósito B",
     tone: "bg-[#edf1ea] text-[#60765a]",
   },
   {
@@ -187,8 +225,10 @@ const resources: Resource[] = [
     category: "Espacios",
     description: "Un espacio tranquilo para lectura y actividades grupales.",
     info: "Capacidad de 20 personas. Ubicada en planta baja.",
-    icon: Armchair,
+    icon: "Armchair",
     available: true,
+    condition: "EXCELENTE",
+    location: "Planta Baja",
     tone: "bg-[#f4eee4] text-[#92754a]",
   },
   {
@@ -197,8 +237,10 @@ const resources: Resource[] = [
     category: "Equipamiento",
     description: "Equipo portátil para acompañar tus actividades educativas.",
     info: "Incluye cargador. Uso dentro de la institución.",
-    icon: Laptop,
+    icon: "Laptop",
     available: true,
+    condition: "BUENO",
+    location: "Carro de carga",
     tone: "bg-[#eaf0f4] text-[#587687]",
   },
   {
@@ -207,8 +249,10 @@ const resources: Resource[] = [
     category: "Equipamiento",
     description: "Parlante portátil para actividades en el aula.",
     info: "Conexión Bluetooth y auxiliar. Incluye micrófono.",
-    icon: Volume2,
+    icon: "Volume2",
     available: true,
+    condition: "BUENO",
+    location: "Depósito A",
     tone: "bg-[#f0ecf5] text-[#7a648a]",
   },
   {
@@ -217,8 +261,10 @@ const resources: Resource[] = [
     category: "Material bibliográfico",
     description: "Selección de libros para trabajar la lectura compartida.",
     info: "15 ejemplares. Consultar el contenido al retirar.",
-    icon: BookMarked,
+    icon: "BookMarked",
     available: true,
+    condition: "EXCELENTE",
+    location: "Sector Literatura",
     tone: "bg-[#f4eee4] text-[#92754a]",
   },
   {
@@ -227,8 +273,10 @@ const resources: Resource[] = [
     category: "Equipamiento",
     description: "Dispositivo para actividades y consultas digitales.",
     info: "Temporalmente fuera de servicio por mantenimiento.",
-    icon: Tablet,
+    icon: "Tablet",
     available: false,
+    condition: "EN_MANTENIMIENTO",
+    location: "Servicio Técnico",
     tone: "bg-muted text-muted-foreground",
   },
 ]
@@ -236,7 +284,8 @@ const resources: Resource[] = [
 const initialRequests: Request[] = [
   {
     id: "BH-0018",
-    resource: "proyector",
+    resourceId: "proyector",
+    userId: "d8329b14-8f76-4d45-9271-70bf81d19b78",
     teacher: "Martín Fernández",
     date: "2026-10-05",
     shift: "Mañana · 08:00–12:00",
@@ -244,10 +293,13 @@ const initialRequests: Request[] = [
     notes: "Presentación para la clase de Ciencias Naturales.",
     status: "PENDIENTE",
     created: "2026-09-30T09:15:00",
+    reviewedBy: null,
+    reviewedAt: null,
   },
   {
     id: "BH-0017",
-    resource: "sala",
+    resourceId: "sala",
+    userId: "d8329b14-8f76-4d45-9271-70bf81d19b78",
     teacher: "Martín Fernández",
     date: "2026-10-06",
     shift: "Mañana · 08:00–12:00",
@@ -255,10 +307,13 @@ const initialRequests: Request[] = [
     notes: "Lectura compartida con el grupo de segundo año.",
     status: "PENDIENTE",
     created: "2026-09-29T14:30:00",
+    reviewedBy: null,
+    reviewedAt: null,
   },
   {
     id: "BH-0016",
-    resource: "notebook",
+    resourceId: "notebook",
+    userId: "d8329b14-8f76-4d45-9271-70bf81d19b78",
     teacher: "Martín Fernández",
     date: "2026-10-07",
     shift: "Tarde · 13:00–17:00",
@@ -266,10 +321,13 @@ const initialRequests: Request[] = [
     notes: "",
     status: "PENDIENTE",
     created: "2026-09-29T10:20:00",
+    reviewedBy: null,
+    reviewedAt: null,
   },
   {
     id: "BH-0015",
-    resource: "proyector",
+    resourceId: "proyector",
+    userId: "d8329b14-8f76-4d45-9271-70bf81d19b78",
     teacher: "Martín Fernández",
     date: "2026-10-02",
     shift: "Mañana · 08:00–12:00",
@@ -277,11 +335,13 @@ const initialRequests: Request[] = [
     notes: "Clase de Geografía.",
     status: "CONFIRMADA",
     created: "2026-09-28T11:00:00",
-    reviewed: "2026-09-29T08:30:00",
+    reviewedBy: "c381f2ba-24a9-4672-882f-2d7c4a1797c2",
+    reviewedAt: "2026-09-29T08:30:00",
   },
   {
     id: "BH-0014",
-    resource: "lectura",
+    resourceId: "lectura",
+    userId: "d8329b14-8f76-4d45-9271-70bf81d19b78",
     teacher: "Martín Fernández",
     date: "2026-10-01",
     shift: "Tarde · 13:00–17:00",
@@ -289,11 +349,13 @@ const initialRequests: Request[] = [
     notes: "",
     status: "CONFIRMADA",
     created: "2026-09-28T09:00:00",
-    reviewed: "2026-09-28T12:00:00",
+    reviewedBy: "c381f2ba-24a9-4672-882f-2d7c4a1797c2",
+    reviewedAt: "2026-09-28T12:00:00",
   },
   {
     id: "BH-0013",
-    resource: "sala",
+    resourceId: "sala",
+    userId: "d8329b14-8f76-4d45-9271-70bf81d19b78",
     teacher: "Martín Fernández",
     date: "2026-09-29",
     shift: "Mañana · 08:00–12:00",
@@ -301,11 +363,13 @@ const initialRequests: Request[] = [
     notes: "",
     status: "RECHAZADA",
     created: "2026-09-25T08:00:00",
-    reviewed: "2026-09-26T10:00:00",
+    reviewedBy: "c381f2ba-24a9-4672-882f-2d7c4a1797c2",
+    reviewedAt: "2026-09-26T10:00:00",
   },
   {
     id: "BH-0019",
-    resource: "proyector",
+    resourceId: "proyector",
+    userId: "7cf3d3b7-7892-4f33-b1d5-eef41b619421",
     teacher: "Ana Rodríguez",
     date: "2026-10-02",
     shift: "Mañana · 08:00–12:00",
@@ -313,10 +377,13 @@ const initialRequests: Request[] = [
     notes: "Actividad audiovisual. Ejemplo de solicitud con conflicto.",
     status: "PENDIENTE",
     created: "2026-09-30T10:00:00",
+    reviewedBy: null,
+    reviewedAt: null,
   },
   {
     id: "BH-0020",
-    resource: "sonido",
+    resourceId: "sonido",
+    userId: "fa25de4a-5c21-4f11-9a99-cfd0725ee190",
     teacher: "Diego López",
     date: "2026-10-08",
     shift: "Tarde · 13:00–17:00",
@@ -324,10 +391,22 @@ const initialRequests: Request[] = [
     notes: "Actividad de expresión oral.",
     status: "PENDIENTE",
     created: "2026-09-30T11:00:00",
+    reviewedBy: null,
+    reviewedAt: null,
   },
 ]
 
-const statusConfig = {
+const statusConfig: Record<
+    Status,
+    {
+      icon: LucideIcon
+      color: string
+      surface: string
+      message: string
+      description: string
+      label: string
+    }
+> = {
   PENDIENTE: {
     icon: Clock3,
     color: "bg-[#fff6e5] text-[#916516] border-[#f2e5c9]",
@@ -352,9 +431,17 @@ const statusConfig = {
     description: "Solicitudes no aprobadas",
     label: "Rechazadas",
   },
+  CANCELADA: {
+    icon: CircleX,
+    color: "bg-muted text-muted-foreground border-border",
+    surface: "bg-muted/30 border-border",
+    message: "La solicitud fue cancelada.",
+    description: "Solicitudes canceladas",
+    label: "Canceladas",
+  },
 }
 
-const resourceById = (id: string) =>
+const resourceById = (id: string): Resource =>
     resources.find((resource) => resource.id === id) || resources[0]
 
 const dateLabel = (date: string) =>
@@ -610,17 +697,17 @@ function Layout({ children }: { children: ReactNode }) {
 
   if (!role) return <Navigate to="/login" replace />
 
-  const admin = role === "bibliotecaria"
-  const name = admin ? "Lucía" : "Martín Fernández"
+  const isStaff = role === "bibliotecaria" || role === "admin"
+  const name = isStaff ? "Lucía" : "Martín Fernández"
   const pending = requests.filter(
       (request) =>
           request.status === "PENDIENTE" &&
-          (admin || request.teacher === "Martín Fernández"),
+          (isStaff || request.teacher === "Martín Fernández"),
   ).length
 
   const navigation = [
     { to: "/", label: "Inicio", icon: LayoutDashboard },
-    ...(admin
+    ...(isStaff
         ? [
           { to: "/pendientes", label: "Solicitudes pendientes", icon: Clock3 },
           { to: "/solicitudes", label: "Solicitudes", icon: FileText },
@@ -640,7 +727,7 @@ function Layout({ children }: { children: ReactNode }) {
           : location.pathname.startsWith("/pendientes")
               ? "Solicitudes pendientes"
               : location.pathname.startsWith("/solicitudes")
-                  ? admin
+                  ? isStaff
                       ? "Solicitudes"
                       : "Mis solicitudes"
                   : location.pathname === "/perfil"
@@ -667,7 +754,7 @@ function Layout({ children }: { children: ReactNode }) {
             <Brand />
           </div>
           <div className="px-6 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-            {admin ? "Gestión de biblioteca" : "Mi espacio"}
+            {isStaff ? "Gestión de biblioteca" : "Mi espacio"}
           </div>
           <nav
               aria-label="Navegación principal"
@@ -740,12 +827,12 @@ function Layout({ children }: { children: ReactNode }) {
             </button>
             <div className="flex items-center gap-3 rounded-lg bg-muted/70 p-3">
             <span className="flex size-9 items-center justify-center rounded-full bg-[#e0eae3] text-xs font-bold text-primary">
-              {admin ? "LU" : "MF"}
+              {isStaff ? "LU" : "MF"}
             </span>
               <div>
                 <span className="block text-xs font-semibold">{name}</span>
-                <span className="mt-0.5 block text-[10px] text-muted-foreground">
-                {admin ? "Bibliotecaria" : "Docente"}
+                <span className="mt-0.5 block text-[10px] text-muted-foreground capitalize">
+                {role}
               </span>
               </div>
               <span className="ml-auto size-1.5 rounded-full bg-primary" />
@@ -795,7 +882,7 @@ function Layout({ children }: { children: ReactNode }) {
                       pendiente todavía no está confirmada.
                     </p>
                     <Link
-                        to={admin ? "/pendientes" : "/solicitudes"}
+                        to={isStaff ? "/pendientes" : "/solicitudes"}
                         className="mt-4 block text-xs font-semibold text-primary"
                     >
                       Ver solicitudes →
@@ -808,10 +895,10 @@ function Layout({ children }: { children: ReactNode }) {
                 className="flex items-center gap-2.5 border-l border-border pl-4"
             >
             <span className="flex size-8 items-center justify-center rounded-full bg-[#e9efe9] text-[11px] font-bold text-primary">
-              {admin ? "LU" : "MF"}
+              {isStaff ? "LU" : "MF"}
             </span>
               <span className="hidden text-xs font-medium sm:block">
-              {admin ? "Lucía" : "Martín F."}
+              {isStaff ? "Lucía" : "Martín F."}
             </span>
               <ChevronDown size={13} className="text-muted-foreground" />
             </Link>
@@ -902,7 +989,7 @@ function ResourceCard({
   compact?: boolean
 }) {
   const { role } = useApp()
-  const Icon = resource.icon
+  const Icon = getResourceIcon(resource.icon)
   return (
       <div className="group overflow-hidden rounded-xl border border-border bg-white transition hover:border-primary/30">
         <Link
@@ -1002,8 +1089,8 @@ function RequestTable({
             </thead>
             <tbody>
             {items.map((request) => {
-              const resource = resourceById(request.resource)
-              const Icon = resource.icon
+              const resource = resourceById(request.resourceId)
+              const Icon = getResourceIcon(resource.icon)
               return (
                   <tr
                       key={request.id}
@@ -1073,7 +1160,7 @@ function RequestTable({
               >
                 <div className="mb-3 flex items-center justify-between gap-2">
               <span className="text-sm font-semibold">
-                {resourceById(request.resource).name}
+                {resourceById(request.resourceId).name}
               </span>
                   <Badge status={request.status} />
                 </div>
@@ -1103,23 +1190,23 @@ function RequestTable({
 
 function Dashboard() {
   const { role, requests } = useApp()
-  const admin = role === "bibliotecaria"
+  const isStaff = role === "bibliotecaria" || role === "admin"
   const items = requests.filter(
-      (request) => admin || request.teacher === "Martín Fernández",
+      (request) => isStaff || request.teacher === "Martín Fernández",
   )
   const navigate = useNavigate()
   return (
       <>
         <PageTitle
-            eyebrow={admin ? "Panel de gestión" : "Tu biblioteca, más cerca"}
-            title={admin ? "Buen día, Lucía" : "Hola, Martín 👋"}
+            eyebrow={isStaff ? "Panel de gestión" : "Tu biblioteca, más cerca"}
+            title={isStaff ? "Buen día, Lucía" : "Hola, Martín 👋"}
             subtitle={
-              admin
+              isStaff
                   ? "Revisá las solicitudes y coordiná el uso de los recursos de la biblioteca."
                   : "Gestioná tus solicitudes y encontrá el recurso para tu próxima clase."
             }
             action={
-                !admin && (
+                !isStaff && (
                     <Button onClick={() => navigate("/nueva-solicitud")}>
                       <Plus size={16} />
                       Nueva solicitud
@@ -1133,11 +1220,11 @@ function Dashboard() {
             <Info className="shrink-0" size={17} />
             <p>
             <span className="font-semibold">
-              {admin
+              {isStaff
                   ? "Cada solicitud necesita tu revisión."
                   : "Una solicitud pendiente aún no está confirmada."}
             </span>{" "}
-              {admin
+              {isStaff
                   ? "Verificá la disponibilidad antes de confirmar un recurso."
                   : "Lucía, nuestra bibliotecaria, revisará y confirmará la disponibilidad del recurso."}
             </p>
@@ -1146,16 +1233,16 @@ function Dashboard() {
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-5">
               <div className="flex items-center gap-2.5">
                 <h2 className="text-[15px] font-bold">
-                  {admin ? "Solicitudes por revisar" : "Mis últimas solicitudes"}
+                  {isStaff ? "Solicitudes por revisar" : "Mis últimas solicitudes"}
                 </h2>
                 <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                {admin
+                {isStaff
                     ? items.filter((item) => item.status === "PENDIENTE").length
                     : items.length}
               </span>
               </div>
               <Link
-                  to={admin ? "/pendientes" : "/solicitudes"}
+                  to={isStaff ? "/pendientes" : "/solicitudes"}
                   className="flex items-center gap-2 text-[11px] font-semibold text-primary"
               >
                 Ver todas
@@ -1163,11 +1250,11 @@ function Dashboard() {
               </Link>
             </div>
             <RequestTable
-                items={(admin
+                items={(isStaff
                         ? items.filter((item) => item.status === "PENDIENTE")
                         : items
                 ).slice(0, 4)}
-                admin={admin}
+                admin={isStaff}
                 compact
             />
           </section>
@@ -1295,7 +1382,7 @@ function ResourceDetail() {
   const { role } = useApp()
   const resource = resources.find((item) => item.id === id)
   if (!resource) return <NotFound />
-  const Icon = resource.icon
+  const Icon = getResourceIcon(resource.icon)
   return (
       <>
         <BackLink to="/recursos" label="Volver a recursos" />
@@ -1316,6 +1403,16 @@ function ResourceDetail() {
               <p className="text-sm leading-7 text-muted-foreground">
                 {resource.info}
               </p>
+              {resource.location && (
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Ubicación:</strong> {resource.location}
+                  </p>
+              )}
+              {resource.condition && (
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Condición:</strong> {resource.condition}
+                  </p>
+              )}
               <p className="text-xs leading-6 text-muted-foreground">
                 Este recurso es un dato de ejemplo para validar el recorrido de
                 solicitud. La fecha, el turno y el módulo se seleccionan en el
@@ -1376,7 +1473,7 @@ function NewRequest() {
   const navigate = useNavigate()
   const location = useLocation()
   const [form, setForm] = useState({
-    resource: new URLSearchParams(location.search).get("recurso") || "",
+    resourceId: new URLSearchParams(location.search).get("recurso") || "",
     date: "",
     shift: "",
     module: "",
@@ -1384,8 +1481,8 @@ function NewRequest() {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [sending, setSending] = useState(false)
-  const shifts = ["Mañana · 08:00–12:00", "Tarde · 13:00–17:00"]
-  const modules = form.shift.startsWith("Mañana")
+  const shifts: Shift[] = ["Mañana · 08:00–12:00", "Tarde · 13:00–17:00"]
+  const modules: Module[] = form.shift.startsWith("Mañana")
       ? [
         "Módulo 1 · 08:00–09:20",
         "Módulo 2 · 09:30–10:50",
@@ -1396,11 +1493,11 @@ function NewRequest() {
         "Módulo 2 · 14:30–15:50",
         "Módulo 3 · 16:00–17:00",
       ]
-  const selected = resources.find((resource) => resource.id === form.resource)
+  const selected = resources.find((resource) => resource.id === form.resourceId)
   const conflict = requests.find(
       (request) =>
           request.status === "CONFIRMADA" &&
-          request.resource === form.resource &&
+          request.resourceId === form.resourceId &&
           request.date === form.date &&
           request.shift === form.shift &&
           request.module === form.module,
@@ -1418,7 +1515,7 @@ function NewRequest() {
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     const next: Record<string, string> = {}
-    for (const key of ["resource", "date", "shift", "module"] as const)
+    for (const key of ["resourceId", "date", "shift", "module"] as const)
       if (!form[key]) next[key] = "Este campo es obligatorio."
     if (
         form.date &&
@@ -1426,10 +1523,10 @@ function NewRequest() {
     )
       next.date = "Seleccioná una fecha válida, de hoy en adelante."
     if (selected && !selected.available)
-      next.resource = "Recurso no disponible. Seleccioná otro recurso."
-    if (form.shift && !shifts.includes(form.shift))
+      next.resourceId = "Recurso no disponible. Seleccioná otro recurso."
+    if (form.shift && !shifts.includes(form.shift as Shift))
       next.shift = "Seleccioná un turno válido."
-    if (form.module && !modules.includes(form.module))
+    if (form.module && !modules.includes(form.module as Module))
       next.module = "Seleccioná un módulo válido para el turno."
     if (Object.keys(next).length) {
       setErrors(next)
@@ -1449,10 +1546,13 @@ function NewRequest() {
         : 20
     const request: Request = {
       ...form,
+      userId: "d8329b14-8f76-4d45-9271-70bf81d19b78", // UUID de Martín Fernández
       teacher: "Martín Fernández",
       id: `BH-${String(highestId + 1).padStart(4, "0")}`,
       status: "PENDIENTE",
       created: new Date().toISOString(),
+      reviewedBy: null,
+      reviewedAt: null,
     }
     setRequests((prev) => [request, ...prev])
     setSending(false)
@@ -1502,15 +1602,15 @@ function NewRequest() {
             </div>
             {errors.general && <Alert kind="error">{errors.general}</Alert>}
             {field(
-                "resource",
+                "resourceId",
                 "Recurso",
                 <select
-                    id="resource"
-                    aria-invalid={!!errors.resource}
-                    aria-describedby={errors.resource ? "resource-error" : undefined}
+                    id="resourceId"
+                    aria-invalid={!!errors.resourceId}
+                    aria-describedby={errors.resourceId ? "resourceId-error" : undefined}
                     className={fieldClass}
-                    value={form.resource}
-                    onChange={(event) => change("resource", event.target.value)}
+                    value={form.resourceId}
+                    onChange={(event) => change("resourceId", event.target.value)}
                 >
                   <option value="">Seleccioná un recurso</option>
                   {resources.map((resource) => (
@@ -1657,7 +1757,7 @@ function NewRequest() {
 function Requests() {
   const { role, requests } = useApp()
   const location = useLocation()
-  const admin = role === "bibliotecaria"
+  const isStaff = role === "bibliotecaria" || role === "admin"
   const pendingPage = location.pathname === "/pendientes"
   const [filter, setFilter] = useState(
       new URLSearchParams(location.search).get("estado") || "TODAS",
@@ -1668,17 +1768,17 @@ function Requests() {
     setFilter(new URLSearchParams(location.search).get("estado") || "TODAS")
   }, [location.search])
 
-  if (pendingPage && !admin) return <PermissionDenied />
+  if (pendingPage && !isStaff) return <PermissionDenied />
 
   const visible = requests.filter(
       (request) =>
-          (admin || request.teacher === "Martín Fernández") &&
+          (isStaff || request.teacher === "Martín Fernández") &&
           (!pendingPage || request.status === "PENDIENTE"),
   )
   const filtered = visible.filter(
       (request) =>
           (pendingPage || filter === "TODAS" || request.status === filter) &&
-          `${resourceById(request.resource).name} ${request.teacher} ${request.id}`
+          `${resourceById(request.resourceId).name} ${request.teacher} ${request.id}`
               .toLowerCase()
               .includes(search.toLowerCase()),
   )
@@ -1686,11 +1786,11 @@ function Requests() {
   return (
       <>
         <PageTitle
-            eyebrow={admin ? "Gestión de solicitudes" : "Seguimiento"}
+            eyebrow={isStaff ? "Gestión de solicitudes" : "Seguimiento"}
             title={
               pendingPage
                   ? "Solicitudes pendientes"
-                  : admin
+                  : isStaff
                       ? "Todas las solicitudes"
                       : "Mis solicitudes"
             }
@@ -1700,7 +1800,7 @@ function Requests() {
                   : "Consultá el estado y los detalles de cada solicitud."
             }
             action={
-                !admin && (
+                !isStaff && (
                     <Button to="/nueva-solicitud">
                       <Plus size={16} />
                       Nueva solicitud
@@ -1720,7 +1820,7 @@ function Requests() {
           <div className="flex flex-wrap items-center justify-between gap-3 p-5">
             {!pendingPage && (
                 <div className="flex flex-wrap gap-1">
-                  {["TODAS", "PENDIENTE", "CONFIRMADA", "RECHAZADA"].map(
+                  {["TODAS", "PENDIENTE", "CONFIRMADA", "RECHAZADA", "CANCELADA"].map(
                       (status) => (
                           <button
                               key={status}
@@ -1734,7 +1834,7 @@ function Requests() {
                           >
                             {status === "TODAS"
                                 ? "Todas"
-                                : statusConfig[(status as Status)].label}
+                                : statusConfig[status as Status]?.label || status}
                             <span className="ml-1.5 text-[10px] opacity-70">
                       {
                         visible.filter(
@@ -1756,7 +1856,7 @@ function Requests() {
               <input
                   aria-label="Buscar solicitudes"
                   placeholder={
-                    admin ? "Buscar recurso o docente…" : "Buscar solicitud…"
+                    isStaff ? "Buscar recurso o docente…" : "Buscar solicitud…"
                   }
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
@@ -1780,10 +1880,10 @@ function Requests() {
                             >
                               <div className="flex items-center gap-3">
                         <span
-                            className={`rounded-lg p-3 ${resourceById(request.resource).tone}`}
+                            className={`rounded-lg p-3 ${resourceById(request.resourceId).tone}`}
                         >
                           {(() => {
-                            const Icon = resourceById(request.resource).icon
+                            const Icon = getResourceIcon(resourceById(request.resourceId).icon)
                             return <Icon size={22} />
                           })()}
                         </span>
@@ -1792,7 +1892,7 @@ function Requests() {
                                       className="text-sm font-semibold hover:text-primary"
                                       to={`/solicitudes/${request.id}`}
                                   >
-                                    {resourceById(request.resource).name}
+                                    {resourceById(request.resourceId).name}
                                   </Link>
                                   <p className="mt-1 text-xs text-muted-foreground">
                                     {request.teacher} · {request.id}
@@ -1830,7 +1930,7 @@ function Requests() {
                         ))}
                       </div>
                   ) : (
-                      <RequestTable items={filtered} admin={admin} />
+                      <RequestTable items={filtered} admin={isStaff} />
                   )}
                 </>
             ) : (
@@ -1858,7 +1958,7 @@ function Requests() {
                               Limpiar búsqueda
                             </Button>
                         ) : (
-                            !admin && (
+                            !isStaff && (
                                 <Button to="/nueva-solicitud">Nueva solicitud</Button>
                             )
                         )
@@ -1923,7 +2023,7 @@ function RequestDetail() {
   const location = useLocation()
   const navigate = useNavigate()
   const request = requests.find((item) => item.id === id)
-  const admin = role === "bibliotecaria"
+  const isStaff = role === "bibliotecaria" || role === "admin"
   const [modal, setModal] =
       useState<"confirmar" | "rechazar" | "conflict" | null>(null)
   const [processing, setProcessing] = useState(false)
@@ -1932,25 +2032,25 @@ function RequestDetail() {
   useEffect(() => {
     const action = new URLSearchParams(location.search).get("accion")
     if (
-        admin &&
+        isStaff &&
         request?.status === "PENDIENTE" &&
         (action === "confirmar" || action === "rechazar")
     )
       setModal(action)
-  }, [location.search, admin, request?.status])
+  }, [location.search, isStaff, request?.status])
 
   if (!request) return <NotFound />
-  if (!admin && request.teacher !== "Martín Fernández")
+  if (!isStaff && request.teacher !== "Martín Fernández")
     return <PermissionDenied />
 
-  const resource = resourceById(request.resource)
-  const Icon = resource.icon
-  const StatusIcon = statusConfig[request.status].icon
+  const resource = resourceById(request.resourceId)
+  const Icon = getResourceIcon(resource.icon)
+  const StatusIcon = statusConfig[request.status]?.icon || Info
   const conflicting = requests.find(
       (item) =>
           item.id !== request.id &&
           item.status === "CONFIRMADA" &&
-          item.resource === request.resource &&
+          item.resourceId === request.resourceId &&
           item.date === request.date &&
           item.shift === request.shift &&
           item.module === request.module,
@@ -1966,7 +2066,7 @@ function RequestDetail() {
   const process = async () => {
     if (
         processing ||
-        !admin ||
+        !isStaff ||
         request.status !== "PENDIENTE" ||
         (modal !== "confirmar" && modal !== "rechazar")
     )
@@ -1987,11 +2087,16 @@ function RequestDetail() {
     }
     setProcessing(true)
     await new Promise((resolve) => setTimeout(resolve, 500))
-    const status = modal === "confirmar" ? "CONFIRMADA" : "RECHAZADA"
+    const status: Status = modal === "confirmar" ? "CONFIRMADA" : "RECHAZADA"
     setRequests((prev) =>
         prev.map((item) =>
             item.id === request.id && item.status === "PENDIENTE"
-                ? { ...item, status, reviewed: new Date().toISOString() }
+                ? {
+                  ...item,
+                  status,
+                  reviewedBy: "c381f2ba-24a9-4672-882f-2d7c4a1797c2", // UUID de Lucía
+                  reviewedAt: new Date().toISOString(),
+                }
                 : item,
         ),
     )
@@ -2008,9 +2113,9 @@ function RequestDetail() {
   return (
       <>
         <BackLink
-            to={admin ? "/pendientes" : "/solicitudes"}
+            to={isStaff ? "/pendientes" : "/solicitudes"}
             label={
-              admin ? "Volver a solicitudes pendientes" : "Volver a mis solicitudes"
+              isStaff ? "Volver a solicitudes pendientes" : "Volver a mis solicitudes"
             }
         />
         <PageTitle
@@ -2020,17 +2125,17 @@ function RequestDetail() {
             action={<Badge status={request.status} />}
         />
         <div
-            className={`mb-6 flex items-start gap-4 rounded-xl border p-5 ${statusConfig[request.status].surface}`}
+            className={`mb-6 flex items-start gap-4 rounded-xl border p-5 ${statusConfig[request.status]?.surface}`}
         >
         <span
-            className={`rounded-lg p-2 ${statusConfig[request.status].color}`}
+            className={`rounded-lg p-2 ${statusConfig[request.status]?.color}`}
         >
           <StatusIcon size={23} />
         </span>
           <div>
             <h2 className="text-base font-bold">Solicitud {request.status}</h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">
-              {statusConfig[request.status].message}
+              {statusConfig[request.status]?.message}
             </p>
             <p className="mt-2 text-xs text-muted-foreground">
               {request.status === "PENDIENTE"
@@ -2066,8 +2171,8 @@ function RequestDetail() {
                 ],
                 [
                   "Última revisión",
-                  request.reviewed
-                      ? `${new Date(request.reviewed).toLocaleString("es-AR")} · Lucía`
+                  request.reviewedAt
+                      ? `${new Date(request.reviewedAt).toLocaleString("es-AR")} · Lucía`
                       : "Pendiente de revisión",
                 ],
               ].map(([label, value]) => (
@@ -2102,7 +2207,7 @@ function RequestDetail() {
               <div className="flex gap-3">
                 <StatusIcon
                     className={`shrink-0 ${
-                        request.status === "RECHAZADA"
+                        request.status === "RECHAZADA" || request.status === "CANCELADA"
                             ? "text-destructive"
                             : request.status === "CONFIRMADA"
                                 ? "text-primary"
@@ -2117,14 +2222,14 @@ function RequestDetail() {
                         : `Solicitud ${request.status}`}
                   </p>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    {request.reviewed
-                        ? `Revisada por Lucía · ${timeLabel(request.reviewed)}`
+                    {request.reviewedAt
+                        ? `Revisada por Lucía · ${timeLabel(request.reviewedAt)}`
                         : "A la espera de Lucía — Bibliotecaria"}
                   </p>
                 </div>
               </div>
             </div>
-            {admin && request.status === "PENDIENTE" && (
+            {isStaff && request.status === "PENDIENTE" && (
                 <div className="space-y-3 rounded-xl border border-border bg-white p-6">
                   <h2 className="mb-4 text-sm font-bold">Revisar solicitud</h2>
                   {conflicting && (
@@ -2152,9 +2257,9 @@ function RequestDetail() {
                   </p>
                 </div>
             )}
-            {!admin && request.status === "RECHAZADA" && (
+            {!isStaff && request.status === "RECHAZADA" && (
                 <Button
-                    to={`/nueva-solicitud?recurso=${request.resource}`}
+                    to={`/nueva-solicitud?recurso=${request.resourceId}`}
                     className="w-full"
                 >
                   Crear una nueva solicitud
@@ -2270,15 +2375,16 @@ function Outcome() {
   const { requests, role } = useApp()
   const request = requests.find((item) => item.id === id)
   if (!request) return <NotFound />
-  if (role !== "bibliotecaria" && request.teacher !== "Martín Fernández")
+  const isStaff = role === "bibliotecaria" || role === "admin"
+  if (!isStaff && request.teacher !== "Martín Fernández")
     return <PermissionDenied />
   const pending = request.status === "PENDIENTE"
-  const Icon = statusConfig[request.status].icon
+  const Icon = statusConfig[request.status]?.icon || Info
   return (
       <div className="mx-auto max-w-2xl py-7">
         <div className="rounded-2xl border border-border bg-white px-6 py-10 text-center sm:px-12">
         <span
-            className={`mx-auto mb-6 flex size-18 items-center justify-center rounded-full ${statusConfig[request.status].color}`}
+            className={`mx-auto mb-6 flex size-18 items-center justify-center rounded-full ${statusConfig[request.status]?.color}`}
         >
           <Icon size={35} strokeWidth={1.5} />
         </span>
@@ -2296,7 +2402,7 @@ function Outcome() {
           <p className="my-6 text-sm leading-7 text-muted-foreground">
             {pending
                 ? "Tu solicitud fue registrada y está pendiente de confirmación por la bibliotecaria."
-                : statusConfig[request.status].message}
+                : statusConfig[request.status]?.message}
           </p>
           {pending && (
               <Alert>
@@ -2306,7 +2412,7 @@ function Outcome() {
           )}
           <dl className="my-6 grid grid-cols-2 gap-5 rounded-xl bg-muted/60 p-5 text-left text-xs">
             {[
-              ["Recurso", resourceById(request.resource).name],
+              ["Recurso", resourceById(request.resourceId).name],
               ["Fecha", dateLabel(request.date)],
               ["Horario / turno", request.shift],
               ["Módulo", request.module],
@@ -2319,9 +2425,9 @@ function Outcome() {
           </dl>
           <div className="flex flex-wrap justify-center gap-3">
             <Button
-                to={role === "bibliotecaria" ? "/pendientes" : "/solicitudes"}
+                to={isStaff ? "/pendientes" : "/solicitudes"}
             >
-              {role === "bibliotecaria"
+              {isStaff
                   ? "Ver solicitudes pendientes"
                   : "Ver mis solicitudes"}
               <ArrowRight size={15} />
@@ -2348,7 +2454,11 @@ function Login() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
   const demoEmail =
-      role === "docente" ? "docente@horizonte.edu" : "lucia@horizonte.edu"
+      role === "docente"
+          ? "docente@horizonte.edu"
+          : role === "bibliotecaria"
+              ? "lucia@horizonte.edu"
+              : "admin@horizonte.edu"
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
@@ -2420,13 +2530,13 @@ function Login() {
                 <legend className="mb-2 text-xs font-semibold">
                   Rol de demostración
                 </legend>
-                <div className="grid grid-cols-2 gap-3">
-                  {(["docente", "bibliotecaria"] as Role[]).map((value) => (
+                <div className="grid grid-cols-3 gap-2">
+                  {(["docente", "bibliotecaria", "admin"] as Role[]).map((value) => (
                       <label
                           key={value}
-                          className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-xs transition ${
+                          className={`flex cursor-pointer items-center gap-1.5 rounded-lg border p-2 text-[11px] capitalize transition ${
                               role === value
-                                  ? "border-primary bg-secondary text-primary"
+                                  ? "border-primary bg-secondary text-primary font-semibold"
                                   : "border-border"
                           }`}
                       >
@@ -2441,7 +2551,7 @@ function Login() {
                             }}
                             className="accent-primary"
                         />
-                        {value === "docente" ? "Docente" : "Bibliotecaria"}
+                        {value}
                       </label>
                   ))}
                 </div>
@@ -2508,7 +2618,9 @@ function Login() {
                 Acceso de prueba ·{" "}
                 {role === "docente"
                     ? "Martín — Docente"
-                    : "Lucía — Bibliotecaria"}
+                    : role === "bibliotecaria"
+                        ? "Lucía — Bibliotecaria"
+                        : "Carlos — Administrador"}
               </p>
               <p className="text-xs leading-6 text-muted-foreground">
                 {demoEmail}
@@ -2539,7 +2651,7 @@ function Login() {
 
 function Profile() {
   const { role, setRole, notify } = useApp()
-  const admin = role === "bibliotecaria"
+  const isStaff = role === "bibliotecaria" || role === "admin"
   const navigate = useNavigate()
   return (
       <>
@@ -2551,21 +2663,29 @@ function Profile() {
           <section className="rounded-xl border border-border bg-white p-7">
             <div className="mb-7 flex items-center gap-4">
             <span className="flex size-16 items-center justify-center rounded-full bg-accent text-lg font-bold text-primary">
-              {admin ? "LU" : "MF"}
+              {isStaff ? "LU" : "MF"}
             </span>
               <div>
-                <h2 className="text-lg font-bold">
-                  {admin ? "Lucía — Bibliotecaria" : "Martín Fernández — Docente"}
+                <h2 className="text-lg font-bold capitalize">
+                  {role === "docente"
+                      ? "Martín Fernández — Docente"
+                      : role === "bibliotecaria"
+                          ? "Lucía — Bibliotecaria"
+                          : "Carlos Gómez — Administrador"}
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {admin ? "lucia@horizonte.edu" : "docente@horizonte.edu"}
+                  {role === "docente"
+                      ? "docente@horizonte.edu"
+                      : role === "bibliotecaria"
+                          ? "lucia@horizonte.edu"
+                          : "admin@horizonte.edu"}
                 </p>
               </div>
             </div>
             <Alert title="Permisos de tu rol">
-              {admin
+              {isStaff
                   ? "Podés consultar todas las solicitudes, confirmar o rechazar solicitudes pendientes y verificar conflictos de disponibilidad."
-                  : "Podés consultar recursos, enviar solicitudes y ver tus solicitudes. La confirmación y el rechazo son exclusivos de la bibliotecaria."}
+                  : "Podés consultar recursos, enviar solicitudes y ver tus solicitudes. La confirmación y el rechazo son exclusivos de la biblioteca."}
             </Alert>
           </section>
           <section className="rounded-xl border border-dashed border-border bg-white p-6">
@@ -2577,12 +2697,14 @@ function Profile() {
             <Button
                 variant="secondary"
                 onClick={() => {
-                  setRole(admin ? "docente" : "bibliotecaria")
-                  notify(`Vista de ${admin ? "Docente" : "Lucía — Bibliotecaria"}`)
+                  setRole(role === "docente" ? "bibliotecaria" : "docente")
+                  notify(
+                      `Vista cambiada a ${role === "docente" ? "Lucía — Bibliotecaria" : "Docente"}`,
+                  )
                   navigate("/")
                 }}
             >
-              Cambiar a {admin ? "Docente" : "Lucía — Bibliotecaria"}
+              Cambiar a {role === "docente" ? "Lucía — Bibliotecaria" : "Docente"}
               <ArrowRight size={15} />
             </Button>
           </section>
@@ -2648,12 +2770,12 @@ function Guide() {
           <section className="rounded-xl border border-border bg-white p-6">
             <h2 className="mb-4 font-bold">02 — Estados y mensajes</h2>
             <div className="space-y-5">
-              {(["PENDIENTE", "CONFIRMADA", "RECHAZADA"] as Status[]).map(
+              {(["PENDIENTE", "CONFIRMADA", "RECHAZADA", "CANCELADA"] as Status[]).map(
                   (status) => (
                       <div key={status}>
                         <Badge status={status} />
                         <p className="mt-2 text-xs leading-6 text-muted-foreground">
-                          {statusConfig[status].message}
+                          {statusConfig[status]?.message}
                         </p>
                       </div>
                   ),
@@ -2858,7 +2980,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [scenario, setScenario] = useState<Scenario>("normal")
   const [toast, setToast] = useState("")
 
-  // Sincronización segura en cliente para evitar hydration mismatch
   useEffect(() => {
     try {
       const storedRole = localStorage.getItem("bh-role")
@@ -2867,7 +2988,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const storedRequests = localStorage.getItem("bh-requests-v1")
       if (storedRequests) setRequests(JSON.parse(storedRequests))
     } catch {
-      // Ignorar errores de parseo local
+      // Manejo seguro en caso de error de parseo local
     }
   }, [])
 
