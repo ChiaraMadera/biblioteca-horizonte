@@ -1,0 +1,62 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=Manrope:wght@400;500;600;650;700;750;800&display=swap');
+@import 'tailwindcss';
+
+:root {
+  --background: #f7f9f8;
+  --foreground: #263831;
+  --card: #ffffff;
+  --card-foreground: #263831;
+  --primary: #27634d;
+  --primary-foreground: #ffffff;
+  --secondary: #edf4ef;
+  --secondary-foreground: #27634d;
+  --muted: #f2f5f3;
+  --muted-foreground: #68766f;
+  --accent: #e7f0e9;
+  --accent-foreground: #27634d;
+  --border: #e4eae6;
+  --ring: #27634d;
+  --radius: 0.75rem;
+  --destructive: #ac4343;
+  --destructive-foreground: #ffffff;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --font-sans: 'DM Sans', sans-serif;
+  --font-heading: 'Manrope', sans-serif;
+  --radius-lg: var(--radius);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  button, a, input, select, textarea {
+    @apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+  }
+  button:not(:disabled), a {
+    cursor: pointer;
+  }
+  h1, h2, h3 {
+    @apply font-heading;
+  }
+  ::selection {
+    @apply bg-accent text-primary;
+  }
+}
