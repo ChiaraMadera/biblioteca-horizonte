@@ -15,7 +15,7 @@ user_schema = UserSchema()
 def login():
     data = login_schema.load(request.get_json())
     result, error = auth_service.authenticate_user(
-        email=data["email"], password=data["password"], role=data["role"]
+        email=data["email"], password=data["password"]
     )
 
     if error:

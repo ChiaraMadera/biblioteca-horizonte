@@ -14,12 +14,10 @@ import {
 import { Button, Alert } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { fieldClass } from "@/lib/utils";
-import type { Role } from "@/lib/types";
 
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
-  const [role, setRole] = useState<Role>("docente");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
@@ -35,7 +33,7 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      await login({ email, password, role });
+      await login({ email, password });
       router.push("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
@@ -111,33 +109,6 @@ export default function LoginPage() {
             Accedé a tu espacio de gestión de recursos.
           </p>
           <form onSubmit={submit} noValidate className="space-y-5">
-            <fieldset>
-              <legend className="mb-2 text-xs font-semibold">Rol</legend>
-              <div className="grid grid-cols-2 gap-3">
-                {(["docente", "bibliotecaria"] as Role[]).map((value) => (
-                  <label
-                    key={value}
-                    className={`flex cursor-pointer items-center gap-2 rounded-lg border p-3 text-xs ${
-                      role === value
-                        ? "border-primary bg-secondary text-primary"
-                        : "border-border"
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="role"
-                      checked={role === value}
-                      onChange={() => {
-                        setRole(value);
-                        setError("");
-                      }}
-                      className="accent-primary"
-                    />
-                    {value === "docente" ? "Docente" : "Bibliotecaria"}
-                  </label>
-                ))}
-              </div>
-            </fieldset>
             {error && <Alert kind="error">{error}</Alert>}
             <div>
               <label htmlFor="email" className="mb-2 block text-xs font-semibold">

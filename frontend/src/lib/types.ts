@@ -84,7 +84,6 @@ export interface DashboardMetrics {
 export interface LoginRequest {
   email: string;
   password: string;
-  role: Role;
 }
 
 export interface LoginResponse {

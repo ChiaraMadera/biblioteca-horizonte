@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 
 from app.extensions import db
 from app.models.request import Request
@@ -28,6 +28,10 @@ def create_request(data: dict, user_id: str):
 
     if not resource.available:
         return None, "El recurso no está disponible."
+
+    # Validar fecha no pasada
+    if data["date"] < date.today():
+        return None, "La fecha no puede ser anterior a hoy."
 
     # Verificar conflictos de horario
     conflict = Request.query.filter_by(
@@ -76,11 +80,54 @@ def review_request(request_id: str, new_status: str, reviewer_id: str):
     if new_status not in ["CONFIRMADA", "RECHAZADA", "CANCELADA"]:
         return None, "Estado inválido."
 
+    # B-01 & B-02: Re-verificar conflictos al confirmar
+    if new_status == "CONFIRMADA":
+        conflict = Request.query.filter(
+            Request.resource_id == request.resource_id,
+            Request.date == request.date,
+            Request.shift == request.shift,
+            Request.module == request.module,
+            Request.status == "CONFIRMADA",
+            Request.id != request.id,
+        ).first()
+
+        if conflict:
+            return None, "El recurso ya está reservado en ese horario por otra solicitud confirmada."
+
+    old_status = request.status
     request.status = new_status
     request.reviewed_by = reviewer_id
     request.reviewed_at = datetime.utcnow()
 
-    _log_audit(reviewer_id, "CHANGE_STATUS", "Request", request.id, {"new_status": new_status})
+    _log_audit(reviewer_id, "CHANGE_STATUS", "Request", request.id, {
+        "old_status": old_status,
+        "new_status": new_status,
+    })
+    db.session.commit()
+    return request, None
+
+
+def cancel_request(request_id: str, user_id: str):
+    """Permite a un docente cancelar sus propias solicitudes PENDIENTES o CONFIRMADAS."""
+    request = Request.query.get(request_id)
+    if not request:
+        return None, "Solicitud no encontrada."
+
+    if request.user_id != user_id:
+        return None, "No tenés permiso para cancelar esta solicitud."
+
+    if request.status not in ["PENDIENTE", "CONFIRMADA"]:
+        return None, "Solo se pueden cancelar solicitudes pendientes o confirmadas."
+
+    old_status = request.status
+    request.status = "CANCELADA"
+    request.reviewed_by = user_id
+    request.reviewed_at = datetime.utcnow()
+
+    _log_audit(user_id, "CANCEL_REQUEST", "Request", request.id, {
+        "old_status": old_status,
+        "new_status": "CANCELADA",
+    })
     db.session.commit()
     return request, None
 

@@ -8,12 +8,13 @@ import {
   CircleX,
   LoaderCircle,
   ArrowRight,
+  Ban,
 } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button, PageTitle, Badge, Alert, LoadingState, EmptyState } from "@/components/ui";
 import { Modal } from "@/components/Modal";
 import { useAuth } from "@/lib/auth";
-import { getRequest, getResources, reviewRequest } from "@/lib/api";
+import { getRequest, getResources, reviewRequest, cancelRequest } from "@/lib/api";
 import { dateLabel, timeLabel, getIconByName } from "@/lib/utils";
 import type { Request, Resource } from "@/lib/types";
 
@@ -26,7 +27,7 @@ export default function RequestDetailPage() {
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const [modal, setModal] = useState<"confirmar" | "rechazar" | "conflict" | null>(null);
+  const [modal, setModal] = useState<"confirmar" | "rechazar" | "conflict" | "cancelar" | null>(null);
   const [processing, setProcessing] = useState(false);
   const [actionError, setActionError] = useState("");
 
@@ -105,7 +106,28 @@ export default function RequestDetailPage() {
   };
 
   const process = async () => {
-    if (processing || !isAdmin || request.status !== "PENDIENTE" || (modal !== "confirmar" && modal !== "rechazar")) return;
+    if (processing || !request) return;
+
+    // Procesar cancelación (docente)
+    if (modal === "cancelar") {
+      if (!token || !user || request.user_id !== user.id) return;
+      setProcessing(true);
+      setActionError("");
+      try {
+        const updated = await cancelRequest(token, request.id);
+        setRequest(updated);
+        setModal(null);
+        router.push(`/solicitudes/${request.id}`);
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : "Error al cancelar la solicitud");
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
+
+    // Procesar confirmación/rechazo (admin)
+    if (!isAdmin || request.status !== "PENDIENTE" || (modal !== "confirmar" && modal !== "rechazar")) return;
     setProcessing(true);
     setActionError("");
     try {
@@ -273,6 +295,16 @@ export default function RequestDetailPage() {
               <ArrowRight size={15} />
             </Button>
           )}
+          {!isAdmin && (request.status === "PENDIENTE" || request.status === "CONFIRMADA") && (
+            <Button
+              variant="secondary"
+              className="w-full text-destructive"
+              onClick={() => setModal("cancelar")}
+            >
+              <Ban size={16} />
+              Cancelar solicitud
+            </Button>
+          )}
         </aside>
       </div>
 
@@ -283,7 +315,9 @@ export default function RequestDetailPage() {
               ? "Conflicto de disponibilidad"
               : modal === "confirmar"
                 ? "Confirmar solicitud"
-                : "Rechazar solicitud"
+                : modal === "cancelar"
+                  ? "Cancelar solicitud"
+                  : "Rechazar solicitud"
           }
           close={closeModal}
         >
@@ -306,7 +340,9 @@ export default function RequestDetailPage() {
               <p className="mb-5 text-sm leading-6 text-muted-foreground">
                 {modal === "confirmar"
                   ? "Se verificará la disponibilidad antes de confirmar. Si no hay conflictos, el recurso quedará confirmado para esta solicitud."
-                  : "La solicitud pasará a RECHAZADA. El docente verá el mensaje de rechazo en el detalle."}
+                  : modal === "cancelar"
+                    ? "La solicitud pasará a CANCELADA. Esta acción no se puede deshacer."
+                    : "La solicitud pasará a RECHAZADA. El docente verá el mensaje de rechazo en el detalle."}
               </p>
               <div className="mb-5 rounded-lg bg-muted p-4 text-xs leading-6">
                 <strong>
@@ -323,19 +359,21 @@ export default function RequestDetailPage() {
               )}
               <div className="flex justify-end gap-3">
                 <Button variant="secondary" disabled={processing} onClick={closeModal}>
-                  Cancelar
+                  Volver
                 </Button>
                 <Button
-                  variant={modal === "rechazar" ? "danger" : "primary"}
+                  variant={modal === "rechazar" || modal === "cancelar" ? "danger" : "primary"}
                   disabled={processing}
                   onClick={process}
                 >
                   {processing && <LoaderCircle size={15} className="animate-spin" />}
                   {processing
-                    ? "Verificando…"
+                    ? "Procesando…"
                     : modal === "confirmar"
                       ? "Confirmar solicitud"
-                      : "Rechazar solicitud"}
+                      : modal === "cancelar"
+                        ? "Cancelar solicitud"
+                        : "Rechazar solicitud"}
                 </Button>
               </div>
             </>

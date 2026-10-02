@@ -3,13 +3,19 @@ from app.models.resource import Resource
 from app.models.audit_log import AuditLog
 
 
-def get_resources(category=None, available=None):
+def get_resources(category=None, available=None, page=None, limit=None):
     query = Resource.query
     if category:
         query = query.filter_by(category=category)
     if available is not None:
         query = query.filter_by(available=available)
-    return query.order_by(Resource.name).all()
+    query = query.order_by(Resource.name)
+
+    # B-06: Paginación
+    if page is not None and limit is not None:
+        return query.paginate(page=page, per_page=limit, error_out=False)
+
+    return query.all()
 
 
 def get_resource_by_id(resource_id: str):

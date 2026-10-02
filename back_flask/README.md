@@ -75,6 +75,14 @@ python -c "from app import create_app; from app.extensions import db; app = crea
 # Ejecutar
 python run.py
 
+# Ejecutar migración de recursos (2 proyectores y 4 notebooks)
+# ⚠️  ADVERTENCIA: Este script elimina todos los recursos existentes y los reemplaza
+python seed.py
+
+# Actualizar referencias en solicitudes existentes (si las hay)
+sqlite3 instance/biblioteca_horizonte.db "UPDATE requests SET resource_id = 'proyector-01' WHERE resource_id = 'res-proj-01';"
+sqlite3 instance/biblioteca_horizonte.db "UPDATE requests SET resource_id = 'proyector-02' WHERE resource_id = 'res-esp-01';"
+
 ```
 
 ## Endpoints
@@ -100,7 +108,7 @@ python run.py
 
 | Método | Ruta | Descripción | Permisos |
 | --- | --- | --- | --- |
-| GET | `/api/resources/` | Listar recursos con filtros opcionales (`category`, `available`) | Autenticado |
+| GET | `/api/resources/` | Listar recursos con filtros opcionales (`category`, `available`) y paginación (`page`, `limit`) | Autenticado |
 | GET | `/api/resources/<id>` | Obtener detalle de recurso por ID (slug) | Autenticado |
 | POST | `/api/resources/` | Crear un nuevo recurso | Admin, Bibliotecaria |
 | PUT | `/api/resources/<id>` | Actualizar datos de un recurso | Admin, Bibliotecaria |
@@ -111,9 +119,10 @@ python run.py
 | Método | Ruta | Descripción | Permisos |
 | --- | --- | --- | --- |
 | GET | `/api/requests/` | Listar solicitudes con filtros (`status`, `user_id`, `resource_id`) | Autenticado |
-| GET | `/api/requests/<id>` | Obtener detalle de una solicitud por ID (`BH-XXXX`) | Autenticado |
-| POST | `/api/requests/` | Crear una nueva solicitud de recurso | Autenticado |
-| PATCH | `/api/requests/<id>/review` | Cambiar estado de solicitud (`CONFIRMADA`, `RECHAZADA`, `CANCELADA`) | Admin, Bibliotecaria |
+| GET | `/api/requests/<id>` | Obtener detalle de una solicitud por ID (`BH-XXXX`). **Validación de autorización:** solo el dueño o admin pueden verla. | Autenticado |
+| POST | `/api/requests/` | Crear una nueva solicitud de recurso. **Validaciones:** fecha no pasada, consistencia turno/módulo, conflicto de horario. | Autenticado |
+| PATCH | `/api/requests/<id>/review` | Cambiar estado de solicitud (`CONFIRMADA`, `RECHAZADA`, `CANCELADA`). **Re-verifica conflictos al confirmar.** | Admin, Bibliotecaria |
+| PATCH | `/api/requests/<id>/cancel` | Cancelar una solicitud propia (estado `PENDIENTE` o `CONFIRMADA`) | Docente (solo propias) |
 
 ### Administración
 

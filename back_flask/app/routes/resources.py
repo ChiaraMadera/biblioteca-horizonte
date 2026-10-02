@@ -20,8 +20,23 @@ def list_resources():
     if available is not None:
         available = available.lower() == "true"
 
-    resources = resource_service.get_resources(category=category, available=available)
-    return jsonify(resources_schema.dump(resources)), 200
+    # B-06: Paginación
+    page = request.args.get("page", type=int)
+    limit = request.args.get("limit", type=int)
+
+    result = resource_service.get_resources(category=category, available=available, page=page, limit=limit)
+
+    # Si es un objeto paginado
+    if hasattr(result, "items"):
+        return jsonify({
+            "data": resources_schema.dump(result.items),
+            "total": result.total,
+            "page": result.page,
+            "pages": result.pages,
+            "per_page": result.per_page,
+        }), 200
+
+    return jsonify(resources_schema.dump(result)), 200
 
 
 @resources_bp.route("/<resource_id>", methods=["GET"])

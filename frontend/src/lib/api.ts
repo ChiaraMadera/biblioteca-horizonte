@@ -210,6 +210,12 @@ export async function reviewRequest(
   }, token);
 }
 
+export async function cancelRequest(token: string, requestId: string): Promise<Request> {
+  return request<Request>(`/requests/${requestId}/cancel`, {
+    method: "PATCH",
+  }, token);
+}
+
 // Admin
 export async function getDashboardMetrics(token: string): Promise<DashboardMetrics> {
   return request<DashboardMetrics>("/admin/dashboard", {}, token);
