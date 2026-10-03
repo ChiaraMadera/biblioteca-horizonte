@@ -19,11 +19,62 @@ def list_requests():
     user_id = request.args.get("user_id")
     resource_id = request.args.get("resource_id")
 
-    requests = request_service.get_requests(
-        status=status, user_id=user_id, resource_id=resource_id
-    )
-    return jsonify(requests_schema.dump(requests)), 200
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
 
+    if not current_user:
+        return jsonify({
+            "error": "Unauthorized",
+            "message": "Usuario no encontrado."
+        }), 401
+
+    if current_user.role == "docente":
+        user_id = current_user_id
+
+    page = request.args.get("page", 1, type=int)
+    per_page = request.args.get("per_page", 10, type=int)
+
+    result = request_service.get_requests(
+        status=status,
+        user_id=user_id,
+        resource_id=resource_id,
+        page=page,
+        per_page=per_page,
+    )
+
+    return jsonify({
+        "items": requests_schema.dump(result.items),
+        "page": result.page,
+        "per_page": result.per_page,
+        "total": result.total,
+        "pages": result.pages,
+    }), 200
+@requests_bp.route("/availability", methods=["GET"])
+@jwt_required()
+def get_availability():
+    resource_id = request.args.get("resource_id")
+    date = request.args.get("date")
+
+    if not resource_id or not date:
+        return jsonify({
+            "error": "Bad Request",
+            "message": "resource_id y date son obligatorios."
+        }), 400
+
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+
+    include_details = current_user and current_user.role in ["admin", "bibliotecaria"]
+
+    slots = request_service.get_availability(
+        resource_id=resource_id,
+        date=date,
+        include_details=include_details
+)
+
+    return jsonify({
+        "slots": slots
+    }), 200
 
 @requests_bp.route("/<request_id>", methods=["GET"])
 @jwt_required()
@@ -54,8 +105,24 @@ def create_request():
     user_id = get_jwt_identity()
 
     req, error = request_service.create_request(data, user_id)
+
     if error:
-        return jsonify({"error": "Conflict", "message": error}), 409
+        if error == "Recurso no encontrado.":
+            return jsonify({
+                "error": "Not Found",
+                "message": error
+            }), 404
+
+        if "reservado" in error.lower() or "disponible" in error.lower():
+            return jsonify({
+                "error": "Conflict",
+                "message": error
+            }), 409
+
+        return jsonify({
+            "error": "Unprocessable Entity",
+            "message": error
+        }), 422
 
     return jsonify(request_schema.dump(req)), 201
 
@@ -68,23 +135,28 @@ def review_request(request_id):
     new_status = data.get("status")
     reviewer_id = get_jwt_identity()
 
-    req, error = request_service.review_request(request_id, new_status, reviewer_id)
+    req, error = request_service.review_request(
+        request_id,
+        new_status,
+        reviewer_id
+    )
+
     if error:
-        return jsonify({"error": "Bad Request", "message": error}), 400
+        if error == "Solicitud no encontrada.":
+            return jsonify({
+                "error": "Not Found",
+                "message": error
+            }), 404
 
-    return jsonify(request_schema.dump(req)), 200
+        if "reservado" in error.lower() or "disponible" in error.lower():
+            return jsonify({
+                "error": "Conflict",
+                "message": error
+            }), 409
 
-
-@requests_bp.route("/<request_id>/cancel", methods=["PATCH"])
-@jwt_required()
-def cancel_request(request_id):
-    """Endpoint para que un docente cancele sus propias solicitudes."""
-    user_id = get_jwt_identity()
-
-    req, error = request_service.cancel_request(request_id, user_id)
-    if error:
-        if "permiso" in error.lower():
-            return jsonify({"error": "Forbidden", "message": error}), 403
-        return jsonify({"error": "Bad Request", "message": error}), 400
+        return jsonify({
+            "error": "Bad Request",
+            "message": error
+        }), 400
 
     return jsonify(request_schema.dump(req)), 200

@@ -1,4 +1,5 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from app.extensions import db
 
@@ -24,9 +25,15 @@ class Resource(db.Model):
     serial_number = db.Column(db.String(100), nullable=True)
     location = db.Column(db.String(200), nullable=True)
     tone = db.Column(db.String(100), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(
+    db.DateTime,
+    default=lambda: datetime.now(ZoneInfo("America/Argentina/Cordoba")),
+    nullable=False
+    )
     updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+    db.DateTime,
+    default=lambda: datetime.now(ZoneInfo("America/Argentina/Cordoba")),
+    nullable=False
     )
 
     # Relaciones

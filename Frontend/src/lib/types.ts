@@ -152,6 +152,9 @@ export interface ErrorResponse {
 }
 
 export interface PaginatedResponse<T> {
-  data: T[];
+  items: T[];
+  page: number;
+  per_page: number;
   total: number;
+  pages: number;
 }

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from app.extensions import db
 
@@ -19,9 +20,16 @@ class User(db.Model):
     )
     dni = db.Column(db.String(20), unique=True, nullable=True)
     phone = db.Column(db.String(20), nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    created_at = db.Column(
+    db.DateTime,
+    default=lambda: datetime.now(ZoneInfo("America/Argentina/Cordoba")),
+    nullable=False
+)
     updated_at = db.Column(
-        db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False
+        db.DateTime,
+    default=lambda: datetime.now(ZoneInfo("America/Argentina/Cordoba")),
+    onupdate=lambda: datetime.now(ZoneInfo("America/Argentina/Cordoba")),
+    nullable=False
     )
 
     # Relaciones

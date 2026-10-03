@@ -35,22 +35,25 @@ export default function GuidePage() {
         <section className="rounded-xl border border-border bg-white p-6">
           <h2 className="mb-4 font-bold">02 — Estados y mensajes</h2>
           <div className="space-y-5">
-            {(["PENDIENTE", "CONFIRMADA", "RECHAZADA"] as const).map((status) => (
+            {(["PENDIENTE", "CONFIRMADA", "RECHAZADA", "CANCELADA"] as const).map((status) => (
               <div key={status}>
                 <Badge status={status} />
                 <p className="mt-2 text-xs leading-6 text-muted-foreground">
                   {status === "PENDIENTE"
-                    ? "Tu solicitud fue registrada y está pendiente de confirmación."
+                    ? "La solicitud fue registrada y está pendiente de confirmación."
                     : status === "CONFIRMADA"
                       ? "La solicitud fue confirmada correctamente."
-                      : "La solicitud fue rechazada."}
+                      : status === "RECHAZADA"
+                        ? "La solicitud fue rechazada."
+                        : "La solicitud fue cancelada por el docente."}
                 </p>
               </div>
             ))}
           </div>
           <p className="mt-5 border-t border-border pt-4 text-xs leading-6 text-muted-foreground">
-            Una solicitud nueva comienza PENDIENTE. Solo la bibliotecaria puede confirmar o rechazar.
-            Una solicitud confirmada no vuelve a pendiente.
+            Una solicitud nueva comienza PENDIENTE. Solo la bibliotecaria puede confirmar o
+            rechazar. El docente puede cancelar sus propias solicitudes PENDIENTES o CONFIRMADAS,
+            siempre que el horario todavía no haya pasado.
           </p>
         </section>
         <section className="rounded-xl border border-border bg-white p-6">
@@ -73,7 +76,8 @@ export default function GuidePage() {
             <p><strong>GET /api/resources/</strong> — Listar recursos</p>
             <p><strong>GET /api/resources/:id</strong> — Detalle de recurso</p>
             <p><strong>POST /api/requests/</strong> — Crear solicitud</p>
-            <p><strong>GET /api/requests/</strong> — Listar solicitudes</p>
+            <p><strong>GET /api/requests/</strong> — Listar solicitudes con filtros y paginación</p>
+            <p><strong>PATCH /api/requests/:id/cancel</strong> — Cancelar una solicitud propia</p>
             <p><strong>PATCH /api/requests/:id/review</strong> — Revisar solicitud</p>
             <p><strong>GET /api/admin/dashboard</strong> — Métricas (admin)</p>
           </div>

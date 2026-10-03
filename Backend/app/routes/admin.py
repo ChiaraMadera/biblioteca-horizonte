@@ -1,6 +1,8 @@
 from flask import Blueprint, jsonify
 from flask_jwt_extended import jwt_required
 from sqlalchemy import func, extract
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from app.extensions import db
 from app.models.user import User
@@ -10,6 +12,7 @@ from app.models.audit_log import AuditLog
 from app.utils.decorators import role_required
 
 admin_bp = Blueprint("admin", __name__)
+ARGENTINA_TZ = ZoneInfo("America/Argentina/Cordoba")
 
 
 @admin_bp.route("/dashboard", methods=["GET"])
@@ -21,12 +24,7 @@ def dashboard():
     active_users = User.query.filter_by(status="ACTIVO").count()
 
     # Solicitudes del mes actual
-    current_month = func.extract("month", Request.created_at)
-    current_year = func.extract("year", Request.created_at)
-    total_requests_this_month = Request.query.filter(
-        current_month == func.extract("month", func.now()),
-        current_year == func.extract("year", func.now()),
-    ).count()
+    
 
     pending = Request.query.filter_by(status="PENDIENTE").count()
     confirmed = Request.query.filter_by(status="CONFIRMADA").count()

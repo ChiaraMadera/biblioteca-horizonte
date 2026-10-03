@@ -79,7 +79,7 @@ function RequestsContent() {
       <div className="overflow-hidden rounded-xl border border-border bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 p-5">
           <div className="flex flex-wrap gap-1">
-            {(["TODAS", "PENDIENTE", "CONFIRMADA", "RECHAZADA"] as const).map((status) => (
+            {(["TODAS", "PENDIENTE", "CONFIRMADA", "RECHAZADA", "CANCELADA"] as const).map((status) => (
               <button
                 key={status}
                 aria-pressed={filter === status}

@@ -9,3 +9,4 @@ flask-cors==6.0.5
 python-dotenv==1.2.3
 # psycopg2-binary==2.9.9  # Descomentar para PostgreSQL en producción
 gunicorn==26.2.0
+tzdata

@@ -11,6 +11,8 @@ import type {
   Request,
   RequestStatus,
   Resource,
+  Shift,
+  Module,
   ResourceCategory,
   UpdateResourceDTO,
   UpdateUserDTO,
@@ -172,17 +174,60 @@ export async function deleteResource(
   }, token);
 }
 
+
 // Requests
 export async function getRequests(
   token: string,
-  params?: { status?: RequestStatus; userId?: string; resourceId?: string }
+  params?: {
+    status?: RequestStatus;
+    userId?: string;
+    resourceId?: string;
+  }
 ): Promise<Request[]> {
   const searchParams = new URLSearchParams();
+
   if (params?.status) searchParams.set("status", params.status);
   if (params?.userId) searchParams.set("user_id", params.userId);
   if (params?.resourceId) searchParams.set("resource_id", params.resourceId);
+
+  searchParams.set("per_page", "1000");
+
   const query = searchParams.toString();
-  return request<Request[]>(`/requests/${query ? `?${query}` : ""}`, {}, token);
+
+  const response = await request<PaginatedResponse<Request>>(
+    `/requests/?${query}`,
+    {},
+    token
+  );
+
+  return response.items;
+}
+
+export interface AvailabilitySlot {
+  shift: Shift;
+  module: Module;
+  available: boolean;
+  reason?: string;
+  request_id?: string;
+}
+
+export async function getAvailability(
+  token: string,
+  resourceId: string,
+  date: string
+): Promise<AvailabilitySlot[]> {
+  const params = new URLSearchParams({
+    resource_id: resourceId,
+    date,
+  });
+
+  const response = await request<{ slots: AvailabilitySlot[] }>(
+    `/requests/availability?${params.toString()}`,
+    {},
+    token
+  );
+
+  return response.slots;
 }
 
 export async function getRequest(token: string, requestId: string): Promise<Request> {

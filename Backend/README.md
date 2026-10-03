@@ -118,11 +118,11 @@ sqlite3 instance/biblioteca_horizonte.db "UPDATE requests SET resource_id = 'pro
 
 | Método | Ruta | Descripción | Permisos |
 | --- | --- | --- | --- |
-| GET | `/api/requests/` | Listar solicitudes con filtros (`status`, `user_id`, `resource_id`) | Autenticado |
+| GET | `/api/requests/` | Listar solicitudes con filtros (`status`, `user_id`, `resource_id`) y paginación (`page`, `per_page`). Los docentes solo pueden consultar sus propias solicitudes. | Autenticado |
 | GET | `/api/requests/<id>` | Obtener detalle de una solicitud por ID (`BH-XXXX`). **Validación de autorización:** solo el dueño o admin pueden verla. | Autenticado |
-| POST | `/api/requests/` | Crear una nueva solicitud de recurso. **Validaciones:** fecha no pasada, consistencia turno/módulo, conflicto de horario. | Autenticado |
-| PATCH | `/api/requests/<id>/review` | Cambiar estado de solicitud (`CONFIRMADA`, `RECHAZADA`, `CANCELADA`). **Re-verifica conflictos al confirmar.** | Admin, Bibliotecaria |
-| PATCH | `/api/requests/<id>/cancel` | Cancelar una solicitud propia (estado `PENDIENTE` o `CONFIRMADA`) | Docente (solo propias) |
+| POST | `/api/requests/` | Crear una solicitud. Valida usuario activo, recurso disponible, fecha hábil, feriados, anticipación máxima de 60 días, turno/módulo, horario y conflictos de disponibilidad. | Docente |
+| PATCH | `/api/requests/<id>/review` | Cambiar estado de una solicitud (`CONFIRMADA`, `RECHAZADA`, `CANCELADA`). Solo permite revisar solicitudes pendientes y re-verifica disponibilidad al confirmar. | Admin, Bibliotecaria |
+| PATCH | `/api/requests/<id>/cancel` | Cancelar una solicitud propia pendiente o confirmada. No permite cancelar solicitudes cuyo horario ya pasó. | Docente (solo propias) |
 
 ### Administración
 

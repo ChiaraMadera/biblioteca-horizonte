@@ -6,7 +6,7 @@ import { ArrowLeft, ArrowRight, LoaderCircle } from "lucide-react";
 import { Layout } from "@/components/Layout";
 import { Button, PageTitle, Alert, LoadingState } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { getResources, createRequest } from "@/lib/api";
+import { getResources, getAvailability, createRequest } from "@/lib/api";
 import { fieldClass, shifts, modules, today } from "@/lib/utils";
 import type { Resource, Shift, Module } from "@/lib/types";
 
@@ -16,7 +16,11 @@ function NewRequestForm() {
   const searchParams = useSearchParams();
 
   const [resources, setResources] = useState<Resource[]>([]);
-  const [loadingResources, setLoadingResources] = useState(true);
+const [availability, setAvailability] = useState<
+  { shift: Shift; module: Module; available: boolean }[]
+>([]);
+const [loadingResources, setLoadingResources] = useState(true);
+const [loadingAvailability, setLoadingAvailability] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -35,6 +39,28 @@ function NewRequestForm() {
       .catch((err) => setError(err.message))
       .finally(() => setLoadingResources(false));
   }, [token]);
+
+    useEffect(() => {
+    if (!token || !form.resourceId || !form.date) {
+      setAvailability([]);
+      return;
+    }
+
+    setLoadingAvailability(true);
+    setError("");
+
+    getAvailability(token, form.resourceId, form.date)
+      .then((data) => {
+        setAvailability(data);
+        setForm((current) => ({
+          ...current,
+          shift: "",
+          module: "",
+        }));
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoadingAvailability(false));
+  }, [token, form.resourceId, form.date]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -59,8 +85,42 @@ function NewRequestForm() {
       });
       router.push(`/solicitudes/${created.id}/enviada`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al crear la solicitud");
-    } finally {
+      if (
+        err &&
+        typeof err === "object" &&
+        "status" in err &&
+        err.status === 409
+      ) {
+        setForm((current) => ({
+          ...current,
+          module: "",
+        }));
+
+        if (token && form.resourceId && form.date) {
+          try {
+            const updatedAvailability = await getAvailability(
+              token,
+              form.resourceId,
+              form.date
+          );
+          setAvailability(updatedAvailability);
+        } catch {
+          // Mantener el mensaje original de conflicto.
+        }
+      }    
+
+      setError(
+        "Ese horario acaba de ser ocupado. Actualizamos la disponibilidad; elegí otro módulo."
+      );
+    } else {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al crear la solicitud"
+      );
+       
+    }
+  } finally {
       setSubmitting(false);
     }
   };
@@ -86,7 +146,14 @@ function NewRequestForm() {
             id="resourceId"
             className={fieldClass}
             value={form.resourceId}
-            onChange={(e) => setForm({ ...form, resourceId: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                resourceId: e.target.value,
+                shift: "",
+                module: "",
+              })
+            }
             required
           >
             <option value="">Seleccionar un recurso...</option>
@@ -108,7 +175,14 @@ function NewRequestForm() {
             className={fieldClass}
             value={form.date}
             min={today()}
-            onChange={(e) => setForm({ ...form, date: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                date: e.target.value,
+                shift: "",
+                module: "",
+              })  
+            }
             required
           />
         </div>
@@ -128,7 +202,11 @@ function NewRequestForm() {
               required
             >
               <option value="">Seleccionar turno...</option>
-              {shifts.map((s) => (
+              {shifts
+                .filter((s) =>
+                  availability.some((slot) => slot.shift === s && slot.available)
+                )
+                .map((s) => (
                 <option key={s} value={s}>
                   {s}
                 </option>
@@ -151,11 +229,20 @@ function NewRequestForm() {
               <option value="">
                 {form.shift ? "Seleccionar módulo..." : "Primero elegí un turno..."}
               </option>
-              {(form.shift ? modules[form.shift] : []).map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
+              {(form.shift ? modules[form.shift] : [])
+                .filter((m) =>
+                  availability.some(
+                    (slot) =>
+                      slot.shift === form.shift &&
+                      slot.module === m &&
+                      slot.available
+                  )
+                )
+                .map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
             </select>
           </div>
         </div>

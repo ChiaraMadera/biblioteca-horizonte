@@ -61,6 +61,7 @@ export default function DashboardPage() {
   const pendingCount = userRequests.filter((r) => r.status === "PENDIENTE").length;
   const confirmedCount = userRequests.filter((r) => r.status === "CONFIRMADA").length;
   const rejectedCount = userRequests.filter((r) => r.status === "RECHAZADA").length;
+  const cancelledCount = userRequests.filter((r) => r.status === "CANCELADA").length;
 
   return (
     <Layout>
@@ -89,13 +90,15 @@ export default function DashboardPage() {
       ) : (
         <>
           <div className="mb-6 grid gap-4 sm:grid-cols-3">
-            {(["PENDIENTE", "CONFIRMADA", "RECHAZADA"] as const).map((status) => {
+            {(["PENDIENTE", "CONFIRMADA", "RECHAZADA", "CANCELADA"] as const).map((status) => {
               const count =
                 status === "PENDIENTE"
                   ? pendingCount
                   : status === "CONFIRMADA"
                     ? confirmedCount
-                    : rejectedCount;
+                    : status === "RECHAZADA"
+                      ? rejectedCount
+                      : cancelledCount;
               return (
                 <Link
                   key={status}
@@ -107,8 +110,10 @@ export default function DashboardPage() {
                       {status === "PENDIENTE"
                         ? "Pendientes"
                         : status === "CONFIRMADA"
-                          ? "Confirmadas"
-                          : "Rechazadas"}
+                        ? "Confirmadas"
+                        : status === "RECHAZADA"
+                        ? "Rechazadas"
+                        : "Canceladas"}
                     </p>
                     <p className="my-1.5 font-heading text-[32px] font-bold leading-tight">
                       {count.toString().padStart(2, "0")}

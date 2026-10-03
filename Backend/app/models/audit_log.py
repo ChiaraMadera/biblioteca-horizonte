@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from app.extensions import db
 
@@ -13,7 +14,11 @@ class AuditLog(db.Model):
     target_entity = db.Column(db.String(50), nullable=False)  # Resource | User | Request
     target_id = db.Column(db.String(100), nullable=False)
     details = db.Column(db.JSON, nullable=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
+    timestamp = db.Column(
+    db.DateTime,
+    default=lambda: datetime.now(ZoneInfo("America/Argentina/Cordoba")),
+    nullable=False
+)
 
     def __repr__(self):
         return f"<AuditLog {self.action} on {self.target_entity}>"

@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
@@ -13,12 +12,13 @@ import {
 import { Layout } from "@/components/Layout";
 import { Button, PageTitle, Badge, Alert, LoadingState, EmptyState } from "@/components/ui";
 import { Modal } from "@/components/Modal";
-import { useAuth } from "@/lib/auth";
+import { useAuth, useAuthGuard } from "@/lib/auth";
 import { getRequest, getResources, reviewRequest, cancelRequest } from "@/lib/api";
 import { dateLabel, timeLabel, getIconByName } from "@/lib/utils";
 import type { Request, Resource } from "@/lib/types";
 
 export default function RequestDetailPage() {
+  useAuthGuard();
   const { token, user, isAdmin } = useAuth();
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -96,7 +96,7 @@ export default function RequestDetailPage() {
   if (!resource) return null;
 
   const Icon = getIconByName(resource.icon);
-  const conflicting = resources.length > 0 && request.status === "PENDIENTE";
+  
 
   const closeModal = () => {
     if (processing) return;
