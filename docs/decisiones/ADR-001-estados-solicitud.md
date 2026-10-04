@@ -1,12 +1,23 @@
 # ADR-001: Estados de la solicitud y transiciones
 
+**Control documental**
+
 | Campo | Valor |
 |---|---|
+| **Código** | ADR-001 |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
-| **Fecha** | 2026-10-02 |
-| **Versión** | 1.0 |
+| **Fecha** | 2026-10-04 |
+| **Versión** | 1.1 – sincronizado con los commits `ba345e7`/`3bd27b0` (409 al confirmar, `review` solo `bibliotecaria` y solo `PENDIENTE`) |
 | **Estado** | Aceptado |
 | **Fuente** | `03_Diseno/02_Estados_y_reglas.md` |
+| **Relacionados** | BH-09 · ADR-002 |
+
+**Historial de cambios**
+
+| Versión | Fecha | Cambio | Autor |
+|---|---|---|---|
+| 1.1 | 2026-10-04 | 409 al confirmar, `review` solo `bibliotecaria` y solo sobre `PENDIENTE` + control documental | Equipo |
+| 1.0 | 2026-10-02 | Ingreso al repo (commit 99d53dc) | Equipo |
 
 ## Contexto
 
@@ -35,14 +46,17 @@ Se **mantiene `CANCELADA`** como extensión del modelo de la cátedra (decisión
 
 ```
 [*] --> PENDIENTE: POST /api/requests/ (docente)
-PENDIENTE --> CONFIRMADA: PATCH /review (bibliotecaria/admin)
-PENDIENTE --> RECHAZADA:  PATCH /review (bibliotecaria/admin)
-PENDIENTE --> CANCELADA:  PATCH /review (biblio/admin) o PATCH /cancel (docente dueño)
-CONFIRMADA --> CANCELADA: PATCH /review (biblio/admin) o PATCH /cancel (docente dueño)
+PENDIENTE --> CONFIRMADA: PATCH /review (solo bibliotecaria)
+PENDIENTE --> RECHAZADA:  PATCH /review (solo bibliotecaria)
+PENDIENTE --> CANCELADA:  PATCH /review (bibliotecaria) o PATCH /cancel (dueño/bibliotecaria)
+PENDIENTE --> CANCELADA:  auto-cancel al confirmar otra del mismo slot (RN-14)
+CONFIRMADA --> CANCELADA: PATCH /cancel (dueño/bibliotecaria)
 CONFIRMADA --> [*]
 RECHAZADA  --> [*]
 CANCELADA  --> [*]
 ```
+
+> `review` solo opera sobre solicitudes `PENDIENTE` (otro estado → 400) y es exclusivo de la `bibliotecaria` (docente y admin → 403).
 
 **Transiciones válidas:** solo las que salen de `PENDIENTE` más `CONFIRMADA → CANCELADA`. Una solicitud `RECHAZADA` o `CANCELADA` no vuelve a otro estado: se crea una solicitud nueva.
 
@@ -56,7 +70,7 @@ CANCELADA  --> [*]
 | `PENDIENTE` → `CANCELADA` | ✅ `PATCH /cancel` (dueño) | ✅ | ✅ | ✅ respeta dueño y estado |
 | `CONFIRMADA` → `CANCELADA` | ✅ `PATCH /cancel` (dueño) | ✅ | ✅ | ✅ libera el horario |
 | `CONFIRMADA` → `RECHAZADA` | ❌ 403 | ⚠ **permitido** | ⚠ **permitido** | ❌ debería rechazarse (queda como known issue) |
-| Ver detalle de solicitud ajena | ❌ 403 | ✅ | ✅ | ✅ dueño o admin/bibliotecaria |
+| Ver detalle de solicitud ajena | ❌ 403 | ✅ | ❌ 403 | ✅ dueño o bibliotecaria |
 
 ### 4. Mensajes que debe ver el docente por estado
 
@@ -78,9 +92,10 @@ CANCELADA  --> [*]
 | Fecha pasada | 422 |
 | Recurso inexistente o `available=false` | 409 |
 | Duplicado al crear | 409 |
-| Duplicado al confirmar | ⚠ 400 hoy; debería ser 409 (known issue, ver contrato §6) |
+| Duplicado al confirmar | 409 (verificación en el servicio + índice único `uq_confirmed_request_slot`) |
+| `review` sobre solicitud que no es `PENDIENTE` | 400 "Solo se pueden revisar solicitudes pendientes." |
 | Token inválido o vencido | 401 |
-| Rol insuficiente | 403 |
+| Rol insuficiente (docente o admin en `review`) | 403 |
 | Excepción no controlada | 500 (sin volcar stack trace) |
 
 ## Consecuencias

@@ -1,12 +1,24 @@
 # Contrato de integración (API)
 
+**Control documental**
+
 | Campo | Valor |
 |---|---|
+| **Código** | BH-17 |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
-| **Fecha** | 2026-10-02 |
+| **Fecha** | 2026-10-04 |
+| **Versión** | 1.3 — sincronizado con los commits `ba345e7`/`3bd27b0`: 21 endpoints, `review` solo `bibliotecaria`, paginación unificada, índice único de respaldo (B-02) |
 | **Base URL** | `http://localhost:5000` |
 | **Formato** | JSON (`Content-Type: application/json`) |
 | **Autenticación** | `Authorization: Bearer <token JWT>` (excepto login) |
+| **Relacionados** | BH-11 (fuente local) · BH-14 |
+
+**Historial de cambios**
+
+| Versión | Fecha | Cambio | Autor |
+|---|---|---|---|
+| 1.3 | 2026-10-04 | 21 endpoints, roles, paginación y B-02/B-03/B-06 cerradas + control documental | Equipo |
+| 1.0 | 2026-10-02 | Ingreso al repo (commit 99d53dc) | Equipo |
 
 > Acuerdo de equipo: **frontend y backend usan literalmente los mismos strings** de estados, turnos y módulos. Si uno cambia un valor, cambia el contrato y se documenta aquí.
 
@@ -22,7 +34,7 @@
 | `category` de recurso | `Equipamiento`, `Espacios`, `Material bibliográfico` |
 | `condition` | `EXCELENTE`, `BUENO`, `EN_MANTENIMIENTO`, `FUERA_DE_SERVICIO` |
 
-## 2. Endpoints (19)
+## 2. Endpoints (21)
 
 ### 2.1 Autenticación — `/api/auth`
 
@@ -57,7 +69,13 @@
 | PUT | `/api/users/<id>` | admin |
 | DELETE | `/api/users/<id>` | admin (baja lógica `status: INACTIVO`) |
 
-Respuesta de listado **paginada**: `{ "data": [...], "total": 12 }`.
+Respuesta de listado **paginada** (formato unificado en los 3 listados — B-06 cerrada):
+
+```jsonc
+{ "items": [ … ], "page": 1, "per_page": 10, "total": 42, "pages": 5 }
+```
+
+> Detalle: el parámetro de página se llama `limit` en `/users` y `/resources`, y `per_page` en `/requests`; la **respuesta** es idéntica en los tres.
 
 ### 2.3 Recursos — `/api/resources`
 
@@ -73,11 +91,14 @@ Respuesta de listado **paginada**: `{ "data": [...], "total": 12 }`.
 
 | Método | Ruta | Rol | Notas |
 |---|---|---|---|
-| GET | `/api/requests/?status=&user_id=&resource_id=` | Autenticado | ⚠ sin paginación (devuelve array completo) |
-| GET | `/api/requests/<id>` | Dueño; admin, bibliotecaria | 403 si es ajena y el rol no es admin/bibliotecaria |
+| GET | `/api/requests/?status=&user_id=&resource_id=&page=&per_page=` | Autenticado | Paginado (B-06 ✅). **Solo `bibliotecaria` ve el listado completo**: docente y admin ven únicamente las propias |
+| GET | `/api/requests/availability?resource_id=&date=` | Autenticado | Disponibilidad del día: `{slots:[{shift, module, available}]}`; solo `bibliotecaria` recibe además `reason`/`request_id`. 400 si faltan los parámetros |
+| GET | `/api/requests/<id>` | Dueño; bibliotecaria | 403 si es ajena y el rol no es `bibliotecaria` (**admin → 403**: no gestiona solicitudes) |
 | POST | `/api/requests/` | Autenticado | 201 · 409 si hay conflicto |
-| PATCH | `/api/requests/<id>/review` | admin, bibliotecaria | body `{ "status": "CONFIRMADA" \| "RECHAZADA" \| "CANCELADA" }` |
-| PATCH | `/api/requests/<id>/cancel` | Dueño (cualquier rol) | Cancela sus propias solicitudes PENDIENTE/CONFIRMADA |
+| PATCH | `/api/requests/<id>/review` | **solo bibliotecaria** | body `{ "status": "CONFIRMADA" \| "RECHAZADA" \| "CANCELADA" }`; solo sobre `PENDIENTE` (admin → 403) |
+| PATCH | `/api/requests/<id>/cancel` | Dueño (cualquier rol) o bibliotecaria | Cancela solicitudes propias (o cualquiera, si es bibliotecaria) en estado PENDIENTE/CONFIRMADA |
+
+> **Cambio de rol (commit `3bd27b0`):** el `admin` quedó **fuera** de la gestión de solicitudes — el panel de administración cubre usuarios, recursos, reportes y auditoría; confirmar/rechazar es exclusivo de la `bibliotecaria`.
 
 **POST `/api/requests/` — crear solicitud**
 
@@ -105,7 +126,26 @@ Respuesta de listado **paginada**: `{ "data": [...], "total": 12 }`.
   "fieldErrors": { "date": ["La fecha no puede ser anterior a hoy."] } }
 ```
 
-**PATCH `/api/requests/<id>/review` — confirmar / rechazar / cancelar (bibliotecaria o admin)**
+**GET `/api/requests/availability` — disponibilidad de un recurso por fecha**
+
+```jsonc
+// Request: ?resource_id=proyector-01&date=2026-10-10
+// 200 OK
+{ "slots": [
+  { "shift": "Mañana · 08:00–12:00", "module": "Módulo 1 · 08:00–09:20", "available": false },
+  { "shift": "Mañana · 08:00–12:00", "module": "Módulo 2 · 09:30–10:50", "available": true },
+  // … 6 slots (2 turnos × 3 módulos)
+] }
+
+// Solo bibliotecaria, cada slot incluye además:
+//   "reason": "PENDIENTE" | "CONFIRMADA", "request_id": "BH-0001"
+// (una PENDIENTE NO ocupa el cupo: solo la CONFIRMADA marca available=false)
+
+// 400 – faltan parámetros
+{ "error": "Bad Request", "message": "resource_id y date son obligatorios." }
+```
+
+**PATCH `/api/requests/<id>/review` — confirmar / rechazar / cancelar (solo bibliotecaria)**
 
 ```jsonc
 // Request
@@ -114,26 +154,34 @@ Respuesta de listado **paginada**: `{ "data": [...], "total": 12 }`.
 // 200 OK
 { "id": "BH-0001", "status": "CONFIRMADA", "reviewed_by": "…", "reviewed_at": "…", "…": "…" }
 
-// 403 – un docente intenta confirmar
+// 403 – un docente (o el admin) intenta revisar
 { "error": "Forbidden", "message": "No tenés permiso para esta acción." }
 
-// Segunda confirmación para mismo recurso/fecha/turno/módulo:
-// ver §6 — hoy responde 400, debería ser 409 (known issue)
-{ "error": "Bad Request", "message": "El recurso ya está reservado en ese horario por otra solicitud confirmada." }
+// 400 – la solicitud no está PENDIENTE (ej.: ya fue confirmada/rechazada)
+{ "error": "Bad Request", "message": "Solo se pueden revisar solicitudes pendientes." }
+
+// 409 – segunda confirmación para mismo recurso/fecha/turno/módulo
+// (re-verificación en el servicio + índice único `uq_confirmed_request_slot` como respaldo)
+{ "error": "Conflict", "message": "El recurso ya está reservado en ese horario." }
 ```
 
-**PATCH `/api/requests/<id>/cancel` — cancelación por el docente dueño**
+> **Efectos de confirmar (commit `3bd27b0`):** además de cambiar el estado, el servicio (a) registra una **notificación** al docente (`AuditLog action=NOTIFICATION`) y (b) **auto-cancela** las demás solicitudes `PENDIENTE` del mismo recurso+fecha+turno+módulo (`AuditLog action=AUTO_CANCEL_PENDING`).
+
+**PATCH `/api/requests/<id>/cancel` — cancelación por el docente dueño o la bibliotecaria**
 
 ```jsonc
 // Request (sin body; se identifica por el token)
 // 200 OK
 { "id": "BH-0001", "status": "CANCELADA", "reviewed_by": "…", "reviewed_at": "…" }
 
-// 403 – no es el dueño
+// 403 – no es el dueño (y no es bibliotecaria)
 { "error": "Forbidden", "message": "No tenés permiso para cancelar esta solicitud." }
 
 // 400 – estado final (RECHAZADA o CANCELADA)
 { "error": "Bad Request", "message": "Solo se pueden cancelar solicitudes pendientes o confirmadas." }
+
+// 400 – el horario ya pasó
+{ "error": "Bad Request", "message": "No se puede cancelar una solicitud cuyo horario ya pasó." }
 ```
 
 ### 2.5 Administración — `/api/admin`
@@ -141,6 +189,7 @@ Respuesta de listado **paginada**: `{ "data": [...], "total": 12 }`.
 | Método | Ruta | Rol |
 |---|---|---|
 | GET | `/api/admin/dashboard` | admin, bibliotecaria |
+| GET | `/api/admin/reporte-usuarios` | admin |
 | GET | `/api/admin/audit-logs` | admin (últimos 100) |
 
 `dashboard` devuelve `totalResources`, `activeUsers`, `totalRequestsThisMonth`, `pendingRequests`, `confirmedRequests`, `rejectedRequests`, `mostRequestedResources[]`.
@@ -153,7 +202,7 @@ Respuesta de listado **paginada**: `{ "data": [...], "total": 12 }`.
 | 401 | `Unauthorized` | Sin token, token vencido o credenciales inválidas |
 | 403 | `Forbidden` | Rol insuficiente / cuenta no activa / recurso ajeno |
 | 404 | `Not Found` | Entidad inexistente |
-| 409 | `Conflict` | Regla de negocio violada al crear (duplicado, email repetido, recurso no disponible) |
+| 409 | `Conflict` | Regla de negocio violada: duplicado al crear o al **confirmar** (409 desde el servicio + índice único), email repetido, recurso no disponible |
 | 422 | `Validation Error` | Falló Marshmallow → incluye `fieldErrors` |
 | 500 | `Internal Server Error` | Excepción no controlada (sin detalle interno) |
 
@@ -177,19 +226,27 @@ Respuesta de listado **paginada**: `{ "data": [...], "total": 12 }`.
 - Los enums (estados, turnos, módulos) están duplicados como literales en `Frontend/src/lib/types.ts`: si cambian, cambian ambos extremos.
 - Estructura del repo: `Backend/` (Flask, arranca con `python run.py`) y `Frontend/` (Next.js).
 
-## 6. Known issues del contrato → `brechas.md`
+## 6. Known issues del contrato (al 04/10/2026)
 
-Los known issues que afectan a este contrato están versionados en **[`brechas.md`](brechas.md)** (fuente única). Los directamente vinculados a la API:
+Tabla propia de este contrato; el detalle de todas las brechas vive en `03_Diseno/02_Estados_y_reglas.md` §7 (fuente única).
 
 | # | Issue | Efecto | Brecha | Estado |
 |---|---|---|---|---|
-| 1 | `review` devuelve **400** para el duplicado al confirmar, pero el contrato y el frontend esperan **409** (y 409 para estado inválido) | El front no distingue el duplicado de un error genérico | B-03 | ❌ Abierto — unificar en 409 al corregir B-03 |
-| 2 | `GET /api/requests/` sin paginación | Rendimiento con muchos registros (RNF04) | B-06 | ⚠️ Parcial — `users` y `resources` paginados, `requests` no |
-| 3 | `datetime.utcnow` sin zona horaria; `CORS(app)` sin restricción de orígenes | Robustez y seguridad | B-08 | ❌ Abierto |
-| 4 | Sin `.env.example` ni `migrations/` inicializado | RNF07 (ejecución en otra computadora) | B-14, B-13 | ❌ Abiertos |
-| 5 | ID `BH-XXXX` generado sin transacción | Colisiones ante concurrencia | B-10 | ❌ Abierto |
-| 6 | Regla central sin índice único de respaldo en BD | Única barrera restante para RF07 | B-02 | ❌ Abierto (crítico) |
+| 1 | `review` resolvía el duplicado con **400** en lugar de **409** | El front no distinguía el duplicado de un error genérico | B-03 (relacionada) | ✅ Cerrado — hoy responde **409** |
+| 2 | `GET /api/requests/` sin paginación | Rendimiento con muchos registros (RNF04) | B-06 | ✅ Cerrado — `{items, page, per_page, total, pages}` en los 3 listados |
+| 3 | `CORS(app)` sin restricción de orígenes (`datetime.utcnow` ya no se usa: todos los timestamps usan `America/Argentina/Cordoba`) | Seguridad/robustez | B-08 | ⚠️ Parcial — tz ✅ · CORS ❌ abierto |
+| 4 | Sin `.env.example` (el `migrations/` ya está inicializado con Alembic) | RNF07 (ejecución en otra computadora) | B-14, B-13 | ⚠️ B-13 ✅ Cerrada · B-14 ❌ Abierta |
+| 5 | ID `BH-XXXX` generado sin transacción (`max()+1` en el servicio) | Colisiones ante concurrencia | B-10 | ❌ Abierto |
+| 6 | Regla central sin índice único de respaldo en BD | Única barrera restante para RF07 | B-02 | ✅ Cerrado — `uq_confirmed_request_slot` (parcial, `WHERE status='CONFIRMADA'`) + `IntegrityError` → 409 |
+
+**Sin known issues abiertos que afecten el formato del contrato.** Los pendientes (B-08 CORS, B-10 IDs, B-14 `.env.example`) no cambian request/response.
 
 ---
 
 **Uso de este documento:** contrato vivo entre Next.js (cliente) y Flask (servicio); se modifica junto con el código y el frontend.
+
+## Referencias normativas
+
+- RFC 9110 – HTTP Semantics (códigos de estado 4xx/5xx).
+- RFC 7519 – JSON Web Token (JWT).
+- OpenAPI Specification 3.1 – estilo de descripción de APIs REST.

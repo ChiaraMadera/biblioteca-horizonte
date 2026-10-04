@@ -1,10 +1,22 @@
 # Modelo de datos
 
+**Control documental**
+
 | Campo | Valor |
 |---|---|
+| **Código** | BH-18 |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
-| **Fecha** | 2026-10-02 |
+| **Fecha** | 2026-10-04 |
+| **Versión** | 1.2 — sincronizado con los commits `ba345e7`/`3bd27b0` (índice único, Alembic, timestamps con zona horaria) |
 | **Persistencia** | SQLite en desarrollo (`biblioteca_horizonte.db`), PostgreSQL opcional en producción |
+| **Relacionados** | BH-10 (fuente local) · BH-17 · ADR-002 |
+
+**Historial de cambios**
+
+| Versión | Fecha | Cambio | Autor |
+|---|---|---|---|
+| 1.2 | 2026-10-04 | Índice único, Alembic y timestamps con zona horaria + control documental | Equipo |
+| 1.0 | 2026-10-02 | Ingreso al repo (commit 99d53dc) | Equipo |
 
 ## 1. Diagrama entidad-relación
 
@@ -85,7 +97,7 @@ erDiagram
 | `status` | Enum | `ACTIVO` \| `INACTIVO` \| `SUSPENDIDO` (default `ACTIVO`) |
 | `dni` | String(20) | UNIQUE, nullable |
 | `phone` | String(20) | nullable |
-| `created_at` / `updated_at` | DateTime | `datetime.utcnow` |
+| `created_at` / `updated_at` | DateTime | `datetime.now(ZoneInfo("America/Argentina/Cordoba"))` (B-08: ya sin `utcnow`) |
 
 Relaciones: `requests` (1-N con `Request.user_id` y `Request.reviewed_by`), `audit_logs` (1-N con `AuditLog.actor_id`).
 
@@ -101,7 +113,7 @@ Relaciones: `requests` (1-N con `Request.user_id` y `Request.reviewed_by`), `aud
 | `available` | Boolean | default `true`; baja lógica (`false` = no reservable) |
 | `condition` | Enum | `EXCELENTE` \| `BUENO` \| `EN_MANTENIMIENTO` \| `FUERA_DE_SERVICIO` |
 | `serial_number` / `location` / `tone` | String | inventario y estilo |
-| `created_at` / `updated_at` | DateTime | `datetime.utcnow` |
+| `created_at` / `updated_at` | DateTime | `datetime.now(ZoneInfo("America/Argentina/Cordoba"))` (B-08: ya sin `utcnow`) |
 
 **Datos semilla (`seed.py`):** 2 proyectores + 4 notebooks, alineados con el caso de la cátedra.
 
@@ -142,14 +154,14 @@ Los cambios de estado registran **`details.old_status` y `details.new_status`** 
 | Turno ↔ módulo coherentes | ✅ | `CreateRequestSchema.validate_shift_module_consistency` (422) |
 | Duplicado al crear → 409 | ✅ | `request_service.create_request` |
 | Duplicado al confirmar → rechazo | ✅ | `request_service.review_request` re-verifica el conflicto |
-| **1 `CONFIRMADA` por recurso+fecha+turno+módulo (índice único en BD)** | ❌ | **Sin constraint de respaldo** — última barrera pendiente |
-| `BH-XXXX` sin colisiones ante concurrencia | ❌ | `SELECT MAX` sin transacción |
-| Migraciones de esquema (`migrations/`) | ❌ | Flask-Migrate instalado, sin inicializar |
+| **1 `CONFIRMADA` por recurso+fecha+turno+módulo (índice único en BD)** | ✅ | **`uq_confirmed_request_slot`** (parcial, `WHERE status='CONFIRMADA'`) + `IntegrityError` → 409 |
+| `BH-XXXX` sin colisiones ante concurrencia | ❌ | `SELECT MAX` sin transacción (B-10) |
+| Migraciones de esquema (`migrations/`) | ✅ | Alembic inicializado — `2ccd2ab74c38_initial` |
 
-### Estrategia de defensa en profundidad para la regla central (ADR-002)
+### Estrategia de defensa en profundidad para la regla central (ADR-002) — ✅ completa
 
-1. **Capa de servicio (✅ implementada):** `create_request` y `review_request` filtran `status="CONFIRMADA"` por `resource_id + date + shift + module` y rechazan con error.
-2. **Capa de datos (⏳ pendiente):** índice único sobre `(resource_id, date, shift, module)` para `status='CONFIRMADA'`, de modo que ni un error de código ni una consulta directa a la BD permitan el duplicado.
+1. **Capa de servicio (✅):** `create_request` y `review_request` filtran `status="CONFIRMADA"` por `resource_id + date + shift + module` y rechazan con **409**.
+2. **Capa de datos (✅ — B-02 cerrada):** índice único parcial `uq_confirmed_request_slot` sobre `(resource_id, date, shift, module)` para `status='CONFIRMADA'` (migración Alembic `2ccd2ab74c38_initial`); el `IntegrityError` del commit se revuelve en **409**, de modo que ni un error de código ni una consulta directa a la BD permitan el duplicado.
 
 ## 4. Datos semilla esperados (según el caso)
 
@@ -159,3 +171,8 @@ Los cambios de estado registran **`details.old_status` y `details.new_status`** 
 | Notebooks | 4 | `EXCELENTE` / `BUENO` |
 
 Usuarios: 1 `bibliotecaria` (Lucía) + 1 `admin` + 2 `docente` de prueba, creados con `reset_passwords.py` / seed.
+
+## Referencias normativas
+
+- ISO/IEC 25010:2011 – Modelos de calidad de sistemas y software.
+- Chen, P. (1976) – *The Entity-Relation Model* (modelado de datos).

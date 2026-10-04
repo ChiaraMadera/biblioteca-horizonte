@@ -1,12 +1,23 @@
 # Historias de usuario
 
+**Control documental**
+
 | Campo | Valor |
 |---|---|
+| **Código** | BH-15 |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
-| **Fecha** | 2026-10-02 |
-| **Versión** | 1.0 |
+| **Fecha** | 2026-10-04 |
+| **Versión** | 1.1 |
 | **Formato** | Como [tipo de usuario], quiero [necesidad] para [beneficio] |
 | **Fuente** | `02_Requisitos_Backlog/02_Historias_de_usuario.md` |
+| **Relacionados** | BH-06 (fuente local) · BH-16 |
+
+**Historial de cambios**
+
+| Versión | Fecha | Cambio | Autor |
+|---|---|---|---|
+| 1.1 | 2026-10-04 | Índice de historias HU-07…HU-16 + control documental | Equipo |
+| 1.0 | 2026-10-02 | Ingreso al repo (commit 99d53dc) | Equipo |
 
 ---
 
@@ -115,4 +126,9 @@
 
 ## Historias adicionales del backlog
 
-Las historias HU-07 a HU-14 están definidas con sus criterios en [`backlog.md`](backlog.md) (14 ítems en total, mínimo exigido: 12).
+Las historias HU-07 a HU-16 están definidas con sus criterios en [`backlog.md`](backlog.md) (16 ítems en total, mínimo exigido: 12).
+
+## Referencias normativas
+
+- Schwaber & Sutherland, *Scrum Guide* (2020) – artefactos: Product Backlog e historias de usuario.
+- ISO/IEC/IEEE 29148:2018 – Ingeniería de requisitos para sistemas y software.

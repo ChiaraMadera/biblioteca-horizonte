@@ -1,11 +1,22 @@
 # Alcance del producto
 
+**Control documental**
+
 | Campo | Valor |
 |---|---|
+| **Código** | BH-13 |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
-| **Fecha** | 2026-10-02 |
-| **Versión** | 1.0 |
+| **Fecha** | 2026-10-04 |
+| **Versión** | 1.1 – sincronizado con los commits `ba345e7`/`3bd27b0` (cancelación implementada, roles, HU-15/HU-16) |
 | **Fuente** | `01_Inicio/01_Ficha_del_proyecto.md` y `01_Inicio/04_Alcance_MVP_y_fuera_de_alcance.md` |
+| **Relacionados** | BH-04 (fuente local) · BH-14 · BH-16 |
+
+**Historial de cambios**
+
+| Versión | Fecha | Cambio | Autor |
+|---|---|---|---|
+| 1.1 | 2026-10-04 | Sincronización con `ba345e7`/`3bd27b0` (HU-15/HU-16, roles) + control documental | Equipo |
+| 1.0 | 2026-10-02 | Ingreso al repo (commit 99d53dc) | Equipo |
 
 ## 1. Problema y objetivo
 
@@ -29,6 +40,7 @@ La biblioteca escolar Horizonte presta **2 proyectores y 4 notebooks** a docente
 | 8 | Rechazar una solicitud | RF08 | HU-03 |
 | 9 | Consultar el estado de la propia solicitud (docente) | RF09 | HU-04 |
 | 10 | Consultar reservas confirmadas por recurso y fecha | RF10 | HU-07 |
+| 11 | Cancelar la propia solicitud (PENDIENTE o CONFIRMADA) | RN-10 | HU-15 |
 
 ### Funciones de soporte (ya implementadas en el backend)
 
@@ -53,7 +65,7 @@ PENDIENTE ──(Bibliotecaria confirma)──▶ CONFIRMADA
     └──────(Bibliotecaria rechaza)────▶ RECHAZADA
 ```
 
-Transiciones: `PENDIENTE → CONFIRMADA` y `PENDIENTE → RECHAZADA`, ambas solo por Lucía (o admin). `CONFIRMADA` y `RECHAZADA` son estados finales. El equipo decidió mantener además el estado **`CANCELADA`** como extensión documentada del modelo (ver ADR-001).
+Transiciones: `PENDIENTE → CONFIRMADA` y `PENDIENTE → RECHAZADA`, ambas **solo por la bibliotecaria** (el administrador no gestiona solicitudes). `CONFIRMADA` y `RECHAZADA` son estados finales salvo anulación. El equipo decidió mantener además el estado **`CANCELADA`** como extensión documentada del modelo (ver ADR-001): se alcanza con `PATCH /cancel` (docente dueño o bibliotecaria) o por auto-cancelación al confirmarse otra solicitud del mismo cupo (RN-14).
 
 ## 3. Fuera de alcance (por ahora)
 
@@ -63,11 +75,12 @@ Transiciones: `PENDIENTE → CONFIRMADA` y `PENDIENTE → RECHAZADA`, ambas solo
 | Catálogo de materias y asignación docente–materia–módulo | No aparece en la consigna ni en el código | Backlog futuro |
 | CRUD de módulos horarios | Los turnos y módulos son un catálogo fijo (2 turnos × 3 módulos) | Decisión técnica, no hay CRUD |
 | Rechazo con motivo escrito | El modelo no tiene campo de motivo | Candidato a CR |
-| Cancelación por el docente desde la interfaz | Amplía transiciones y roles | Candidato a backlog futuro |
 | Pagos y multas | No pertenecen al caso original | Fuera de alcance |
 | Inventario de reparaciones | Fuera del caso original | Fuera de alcance |
 | Reservas recurrentes y módulos parciales | Complejiza la regla de duplicados | Fuera de alcance |
-| Notificaciones, app móvil, multi-sede | Sin relación con el problema central | Fuera de alcance |
+| Notificaciones push, app móvil, multi-sede | Sin relación con el problema central | Fuera de alcance (la **notificación interna** de confirmación/auto-cancelación ya se registra en auditoría — RN-14; el correo figura como HU-12) |
+
+> **Actualizado (v1.1):** la *cancelación por el docente* **salió de esta lista** — está implementada (`PATCH /api/requests/<id>/cancel`, RN-10) y registrada como **HU-15** en el Product Backlog.
 
 ## 4. Supuestos vigentes
 
@@ -83,3 +96,8 @@ Transiciones: `PENDIENTE → CONFIRMADA` y `PENDIENTE → RECHAZADA`, ambas solo
 3. Se intenta confirmar otra solicitud para el mismo recurso, fecha y módulo → **el sistema la rechaza**.
 4. Lucía rechaza otra solicitud → el docente ve **RECHAZADA**.
 5. Pendiente y confirmada **nunca** se muestran como equivalentes.
+
+## Referencias normativas
+
+- ISO/IEC/IEEE 29148:2018 – Ingeniería de requisitos para sistemas y software.
+- ISO/IEC/IEEE 12207:2017 – Procesos del ciclo de vida de software.
