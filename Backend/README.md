@@ -11,44 +11,101 @@ API REST para gestión de recursos de biblioteca (proyectores, espacios, materia
 * **Flask-Migrate** (Alembic) - Migraciones de base de datos
 * **PostgreSQL** (desarrollo: SQLite)
 
-## Estructura del Proyecto
+## Características Implementadas
 
-```
-biblioteca-horizonte/
-├── app/
-│   ├── __init__.py          # Factory de la aplicación
-│   ├── config.py            # Configuración por entorno
-│   ├── extensions.py        # Extensiones (db, ma, jwt, migrate)
-│   ├── models/              # Modelos SQLAlchemy
-│   │   ├── user.py
-│   │   ├── resource.py
-│   │   ├── request.py
-│   │   └── audit_log.py
-│   ├── schemas/             # Schemas Marshmallow (DTOs)
-│   │   ├── auth.py
-│   │   ├── user.py
-│   │   ├── resource.py
-│   │   └── request.py
-│   ├── routes/              # Blueprints (controladores)
-│   │   ├── auth.py
-│   │   ├── users.py
-│   │   ├── resources.py
-│   │   └── requests.py
-│   ├── services/            # Lógica de negocio
-│   │   ├── auth_service.py
-│   │   ├── user_service.py
-│   │   ├── resource_service.py
-│   │   └── request_service.py
-│   └── utils/               # Utilidades
-│       ├── decorators.py    # @role_required
-│       └── error_handlers.py
-├── migrations/              # Migraciones Alembic
-├── tests/
-├── requirements.txt
-├── .env.example
-└── run.py
+### Regla Central del Sistema
+Solo puede existir 1 reserva CONFIRMADA para el mismo equipo, la misma fecha y el mismo módulo horario. **Una solicitud PENDIENTE todavía no garantiza disponibilidad.**
 
+Esta regla se implementa en:
+- `create_request()`: al crear, solo un estado `CONFIRMADA` bloquea el slot → varias solicitudes PENDIENTES pueden competir por el mismo cupo
+- `get_availability()`: solo las CONFIRMADA marcan un slot como ocupado (las pendientes se informan como detalle, sin bloquear)
+- `review_request()`: al confirmar, se re-verifica el conflicto contra otras CONFIRMADA
+- Índice único en BD: `uq_confirmed_request_slot` sobre `(resource_id, date, shift, module)` WHERE `status = 'CONFIRMADA'`
+
+Al confirmarse una solicitud el sistema además:
+1. **Notifica al docente** (`send_notification` → registro `NOTIFICATION` en `AuditLog`)
+2. **Cancela automáticamente** las demás solicitudes PENDIENTES del mismo recurso/fecha/turno/módulo (registro `AUTO_CANCEL_PENDING`)
+
+### Separación de Roles por Responsabilidades
+
+| **Rol** | **Permisos Principales** |
+|---------|-------------------------|
+| **docente** | Autenticarse, consultar recursos, crear solicitudes, consultar y cancelar las propias solicitudes |
+| **bibliotecaria** | Ver **todas** las solicitudes, confirmar/rechazar/cancelarlas, verificar disponibilidad, consultar el dashboard |
+| **admin** | **Solo administración:** panel de control, alta/baja de usuarios, alta de recursos, baja lógica de recursos, reportes de estado y logs de auditoría. **No gestiona solicitudes** (eso es del bibliotecario): `GET /requests/` le devuelve únicamente las suyas, `review`, el detalle ajeno y la cancelación ajena responden `403`. |
+
+> Separación estricta: las tareas del bibliotecario (cola de pendientes, confirmación y
+> rechazo) no están disponibles para el administrador, y las de administración no están
+> disponibles para el bibliotecario (usuarios, bajas de recursos, reportes y auditoría).
+
+### Endpoints Administrativos Nuevos
+
+| **Método** | **Ruta** | **Descripción** | **Permisos** |
+|------------|----------|----------------|------------|
+| GET | `/api/admin/dashboard` | Métricas del panel (recursos totales, usuarios activos, solicitudes del mes, top más solicitados) | Admin, Bibliotecaria |
+| GET | `/api/admin/reporte-usuarios` | Informe de usuarios por rol, recursos por estado y solicitudes por estado | **Admin solo** |
+| GET | `/api/admin/audit-logs` | Listado de los últimos 100 registros de auditoría | **Admin solo** |
+| POST | `/api/users/` | Crear un nuevo usuario | **Solo Admin** |
+| PUT | `/api/users/<id>` | Actualizar datos de un usuario | **Solo Admin** |
+| DELETE | `/api/users/<id>` | Baja lógica de usuario (`status: INACTIVO`) | **Solo Admin** |
+| POST | `/api/resources/` | Crear un nuevo recurso | Admin, Bibliotecaria |
+| PUT | `/api/resources/<id>` | Actualizar datos de un recurso | Admin, Bibliotecaria |
+| DELETE | `/api/resources/<id>` | Baja lógica de recurso (`available: false`) | **Solo Admin** |
+
+### Endpoints de Solicitudes (Regla Actualizada)
+
+| **Método** | **Ruta** | **Descripción** | **Permisos** |
+|------------|----------|----------------|------------|
+| GET | `/api/requests/` | Listar solicitudes con filtros (`status`, `user_id`, `resource_id`) y paginación (`page`, `per_page`). **Solo la bibliotecaria ve el listado completo**; el docente y el administrador ven únicamente las suyas. | Autenticado |
+| GET | `/api/requests/<id>` | Obtener detalle de una solicitud por ID (`BH-XXXX`). **Validación de autorización:** solo el dueño o la bibliotecaria pueden verla. | Autenticado |
+| GET | `/api/requests/availability` | Disponibilidad de los módulos para un recurso/fecha. El campo `reason`/`request_id` de los slots ocupados solo se incluye para la bibliotecaria. | Autenticado |
+| POST | `/api/requests/` | Crear una solicitud. Valida usuario activo, recurso disponible, fecha hábil, feriados, anticipación máxima de 60 días, turno/módulo, horario y conflictos de disponibilidad (solo CONFIRMADA bloquea). | Docente |
+| PATCH | `/api/requests/<id>/review` | Cambiar estado de una solicitud (`CONFIRMADA`, `RECHAZADA`, `CANCELADA`). Solo revisa solicitudes PENDIENTES y re-verifica la disponibilidad al confirmar. Al confirmar notifica al docente y cancela las demás PENDIENTES del mismo cupo. | **Solo Bibliotecaria** (`403` para admin y docente) |
+| PATCH | `/api/requests/<id>/cancel` | Cancelar una solicitud. El docente solo puede cancelar las propias; la bibliotecaria puede cancelar cualquiera. No permite cancelar solicitudes cuyo horario ya pasó. | Dueño o Bibliotecaria |
+
+### Formato de paginación (contrato único)
+
+Los listados `/api/requests/`, `/api/users/` y `/api/resources/` responden **siempre** la misma estructura:
+
+```json
+{
+  "items": [],
+  "page": 1,
+  "per_page": 10,
+  "total": 0,
+  "pages": 0
+}
 ```
+
+Parámetros: `page` y `per_page` (requests), `page` y `limit` (users y resources).
+
+### Endpoints de Recursos
+
+| **Método** | **Ruta** | **Descripción** | **Permisos** |
+|------------|----------|----------------|------------|
+| GET | `/api/resources/` | Listar recursos con filtros opcionales (`category`, `available`) y paginación (`page`, `limit`) | Autenticado |
+| GET | `/api/resources/<id>` | Obtener detalle de recurso por ID (slug) | Autenticado |
+| POST | `/api/resources/` | Crear un nuevo recurso | Admin, Bibliotecaria |
+| PUT | `/api/resources/<id>` | Actualizar datos de un recurso | Admin, Bibliotecaria |
+| DELETE | `/api/resources/<id>` | Baja lógica de recurso (`available: false`) | **Solo Admin** |
+
+### Usuarios Predefinidos
+
+Los siguientes usuarios vienen definidos por defecto en el sistema (pueden ser modificados con `reset_passwords.py`):
+
+| **Email** | **Rol** | **Contraseña** |
+|-----------|---------|----------------|
+| admin@horizonte.edu.ar | admin | Admin123! |
+| biblioteca@horizonte.edu.ar | bibliotecaria | Biblioteca123! |
+| docente1@horizonte.edu.ar | docente | Docente123! |
+| docente2@horizonte.edu.ar | docente | Docente123! |
+
+### Recursos Iniciales
+
+6 recursos por defecto (insertados con `seed.py`):
+
+* 2 proyectores: Epson EB-X06, BenQ MW550
+* 4 notebooks: Lenovo ThinkPad E14, HP 255 G8, Dell Latitude 3520, Acer Aspire 5
 
 ## Instalación
 
@@ -82,137 +139,18 @@ python seed.py
 # Actualizar referencias en solicitudes existentes (si las hay)
 sqlite3 instance/biblioteca_horizonte.db "UPDATE requests SET resource_id = 'proyector-01' WHERE resource_id = 'res-proj-01';"
 sqlite3 instance/biblioteca_horizonte.db "UPDATE requests SET resource_id = 'proyector-02' WHERE resource_id = 'res-esp-01';"
-
 ```
 
-## Endpoints
+## Notificaciones
 
-### Autenticación
+`request_service.send_notification(target_user_id, subject, message, reference)` es el punto único de notificación al docente. Hoy deja una traza en `AuditLog` con acción `NOTIFICATION`; ahí se debe conectar el envío real de correo o mensajería.
 
-| Método | Ruta | Descripción | Permisos |
-| --- | --- | --- | --- |
-| POST | `/api/auth/login` | Autentica un usuario y genera token JWT | Público |
-| GET | `/api/auth/me` | Obtiene el perfil del usuario autenticado | Autenticado |
+## Endpoints completos
 
-### Usuarios
-
-| Método | Ruta | Descripción | Permisos |
-| --- | --- | --- | --- |
-| GET | `/api/users/` | Listar usuarios con paginación (`page`, `limit`) y filtros (`role`, `status`, `search`) | Admin, Bibliotecaria |
-| GET | `/api/users/<id>` | Obtener detalle de usuario por ID | Admin, Bibliotecaria |
-| POST | `/api/users/` | Crear un nuevo usuario | Solo Admin |
-| PUT | `/api/users/<id>` | Actualizar datos de un usuario | Solo Admin |
-| DELETE | `/api/users/<id>` | Baja lógica de usuario (`status: INACTIVO`) | Solo Admin |
-
-### Recursos
-
-| Método | Ruta | Descripción | Permisos |
-| --- | --- | --- | --- |
-| GET | `/api/resources/` | Listar recursos con filtros opcionales (`category`, `available`) y paginación (`page`, `limit`) | Autenticado |
-| GET | `/api/resources/<id>` | Obtener detalle de recurso por ID (slug) | Autenticado |
-| POST | `/api/resources/` | Crear un nuevo recurso | Admin, Bibliotecaria |
-| PUT | `/api/resources/<id>` | Actualizar datos de un recurso | Admin, Bibliotecaria |
-| DELETE | `/api/resources/<id>` | Baja lógica de recurso (`available: false`) | Solo Admin |
-
-### Solicitudes
-
-| Método | Ruta | Descripción | Permisos |
-| --- | --- | --- | --- |
-| GET | `/api/requests/` | Listar solicitudes con filtros (`status`, `user_id`, `resource_id`) y paginación (`page`, `per_page`). Los docentes solo pueden consultar sus propias solicitudes. | Autenticado |
-| GET | `/api/requests/<id>` | Obtener detalle de una solicitud por ID (`BH-XXXX`). **Validación de autorización:** solo el dueño o admin pueden verla. | Autenticado |
-| POST | `/api/requests/` | Crear una solicitud. Valida usuario activo, recurso disponible, fecha hábil, feriados, anticipación máxima de 60 días, turno/módulo, horario y conflictos de disponibilidad. | Docente |
-| PATCH | `/api/requests/<id>/review` | Cambiar estado de una solicitud (`CONFIRMADA`, `RECHAZADA`, `CANCELADA`). Solo permite revisar solicitudes pendientes y re-verifica disponibilidad al confirmar. | Admin, Bibliotecaria |
-| PATCH | `/api/requests/<id>/cancel` | Cancelar una solicitud propia pendiente o confirmada. No permite cancelar solicitudes cuyo horario ya pasó. | Docente (solo propias) |
-
-### Administración
-
-| Método | Ruta | Descripción | Permisos |
-| --- | --- | --- | --- |
-| GET | `/api/admin/dashboard` | Métricas del panel (recursos totales, usuarios activos, solicitudes del mes, top más solicitados) | Admin, Bibliotecaria |
-| GET | `/api/admin/audit-logs` | Listado de los últimos 100 registros de auditoría | Solo Admin |
+La implementación de todos los endpoints vive en `app/routes/` (`auth.py`, `users.py`, `resources.py`, `requests.py`, `admin.py`).
 
 ## Roles
 
 * **docente** - Puede autenticarse, consultar recursos y crear solicitudes.
 * **bibliotecaria** - Puede gestionar el catálogo de recursos, ver usuarios, revisar/aprobar solicitudes y consultar el dashboard administrativo.
 * **admin** - Acceso completo al sistema (alta/baja de usuarios, eliminación lógica de recursos, ver logs de auditoría y métricas del sistema).
-
-## Formato de Respuestas
-
-### Éxito (Ejemplo: Solicitud Creada)
-
-```json
-{
-  "id": "BH-0001",
-  "resource_id": "proyector",
-  "user_id": "1d8a301d-5b32-4d22-b5e1-873b2a265692",
-  "teacher": "Juan Pérez",
-  "date": "2026-04-10",
-  "shift": "Mañana · 08:00–12:00",
-  "module": "Módulo 1 · 08:00–09:20",
-  "notes": "Se requiere cable HDMI adicional.",
-  "status": "PENDIENTE",
-  "created_at": "2026-03-30T17:00:00",
-  "reviewed_by": null,
-  "reviewed_at": null
-}
-
-```
-
-### Éxito (Ejemplo: Login)
-
-```json
-{
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": "1d8a301d-5b32-4d22-b5e1-873b2a265692",
-    "name": "María González",
-    "email": "maria.gonzalez@horizonte.edu.ar",
-    "role": "docente",
-    "status": "ACTIVO",
-    "dni": "35123456",
-    "phone": "3571556677",
-    "created_at": "2026-01-15T08:30:00",
-    "updated_at": "2026-01-15T08:30:00"
-  }
-}
-
-```
-
-### Error por Validación de Datos (422 Unprocessable Entity)
-
-```json
-{
-  "error": "Validation Error",
-  "message": "Datos inválidos.",
-  "fieldErrors": {
-    "email": [
-      "Not a valid email address."
-    ],
-    "role": [
-      "Must be one of: docente, bibliotecaria, admin."
-    ]
-  }
-}
-
-```
-
-### Error de Conflicto o Negocio (409 Conflict)
-
-```json
-{
-  "error": "Conflict",
-  "message": "El email ingresado ya pertenece a un usuario registrado."
-}
-
-```
-
-### Error de Permisos o Autorización (403 Forbidden)
-
-```json
-{
-  "error": "Forbidden",
-  "message": "No tenés permiso para esta acción."
-}
-
-```

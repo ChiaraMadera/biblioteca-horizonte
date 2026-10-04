@@ -11,7 +11,7 @@ import { fieldClass, dateLabel, getIconByName } from "@/lib/utils";
 import type { Request, Resource } from "@/lib/types";
 
 export default function PendientesPage() {
-  const { token, isAdmin } = useAuth();
+  const { token, isBibliotecaria } = useAuth();
   const router = useRouter();
   const [requests, setRequests] = useState<Request[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
@@ -41,7 +41,7 @@ export default function PendientesPage() {
     fetchData();
   }, [token]);
 
-  if (!isAdmin) {
+  if (!isBibliotecaria) {
     return (
       <Layout>
         <EmptyState

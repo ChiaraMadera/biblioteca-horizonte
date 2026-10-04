@@ -33,8 +33,9 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      await login({ email, password });
-      router.push("/");
+      const logged = await login({ email, password });
+      // El administrador solo navega por /admin/*, así que entra a su panel.
+      router.push(logged.role === "admin" ? "/admin/dashboard" : "/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al iniciar sesión");
     } finally {

@@ -11,9 +11,15 @@ import { fieldClass, shifts, modules, today } from "@/lib/utils";
 import type { Resource, Shift, Module } from "@/lib/types";
 
 function NewRequestForm() {
-  const { token, user } = useAuth();
+  const { token, user, isAdmin } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // El administrador no crea solicitudes: solo gestiona panel de control,
+  // usuarios, recursos y reportes (el backend también lo rechaza).
+  useEffect(() => {
+    if (user && isAdmin) router.replace("/admin/dashboard");
+  }, [user, isAdmin, router]);
 
   const [resources, setResources] = useState<Resource[]>([]);
 const [availability, setAvailability] = useState<

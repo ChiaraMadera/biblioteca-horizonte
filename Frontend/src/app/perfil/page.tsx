@@ -5,10 +5,16 @@ import { PageTitle, Alert } from "@/components/ui";
 import { useAuth, useAuthGuard } from "@/lib/auth";
 
 export default function ProfilePage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isBibliotecaria } = useAuth();
   useAuthGuard();
 
   if (!user) return null;
+
+  const roleLabel = isAdmin
+    ? "Administrador"
+    : isBibliotecaria
+      ? "Bibliotecaria"
+      : "Docente";
 
   const initials = user.name
     .split(" ")
@@ -31,15 +37,17 @@ export default function ProfilePage() {
             </span>
             <div>
               <h2 className="text-lg font-bold">
-                {user.name} — {isAdmin ? "Bibliotecaria" : "Docente"}
+                {user.name} — {roleLabel}
               </h2>
               <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
             </div>
           </div>
           <Alert title="Permisos de tu rol">
             {isAdmin
-              ? "Podés consultar todas las solicitudes, confirmar o rechazar solicitudes pendientes y verificar conflictos de disponibilidad."
-              : "Podés consultar recursos, enviar solicitudes y ver tus solicitudes. La confirmación y el rechazo son exclusivos de la bibliotecaria."}
+              ? "Podés registrar y dar de baja usuarios y recursos, consultar todos los reportes y revisar solicitudes."
+              : isBibliotecaria
+                ? "Podés consultar todas las solicitudes, confirmar o rechazar solicitudes pendientes y verificar conflictos de disponibilidad."
+                : "Podés consultar recursos, enviar solicitudes y ver tus solicitudes. La confirmación y el rechazo son exclusivos de la bibliotecaria."}
           </Alert>
         </section>
         <section className="rounded-xl border border-border bg-white p-6">

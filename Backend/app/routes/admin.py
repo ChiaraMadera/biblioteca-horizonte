@@ -23,8 +23,13 @@ def dashboard():
     total_resources = Resource.query.count()
     active_users = User.query.filter_by(status="ACTIVO").count()
 
-    # Solicitudes del mes actual
-    
+    # Solicitudes del mes actual (usando fecha actual del sistema)
+    from datetime import date
+    current_month = datetime.now(ARGENTINA_TZ).month
+    total_requests_this_month = Request.query.filter(
+        extract("month", Request.created_at) == current_month,
+        extract("year", Request.created_at) == datetime.now(ARGENTINA_TZ).year,
+    ).count()
 
     pending = Request.query.filter_by(status="PENDIENTE").count()
     confirmed = Request.query.filter_by(status="CONFIRMADA").count()
@@ -60,6 +65,50 @@ def dashboard():
                 }
                 for r in most_requested
             ],
+        }
+    ), 200
+
+
+@admin_bp.route("/reporte-usuarios", methods=["GET"])
+@jwt_required()
+@role_required("admin")
+def reporte_usuarios():
+    """Reporte completo de usuarios con estado de baja/mantenimiento."""
+    # Usuarios por rol
+    usuarios_por_rol = {}
+    for rol in ["admin", "bibliotecaria", "docente"]:
+        count = User.query.filter_by(role=rol, status="ACTIVO").count()
+        count_baja = User.query.filter_by(role=rol, status="INACTIVO").count()
+        usuarios_por_rol[rol] = {
+            "activos": count,
+            "dados_de_baja": count_baja,
+            "total": count + count_baja,
+        }
+
+    # Recursos por estado
+    recursos_por_estado = {}
+    for estado in ["EXCELENTE", "BUENO", "EN_MANTENIMIENTO", "FUERA_DE_SERVICIO"]:
+        count = Resource.query.filter_by(condition=estado, available=True).count()
+        count_mantenimiento = Resource.query.filter_by(condition=estado, available=False).count()
+        recursos_por_estado[estado] = {
+            "disponibles": count,
+            "en_mantenimiento": count_mantenimiento,
+            "total": count + count_mantenimiento,
+        }
+
+    # Solicitudes por estado
+    solicitudes_por_estado = {
+        "pendientes": Request.query.filter_by(status="PENDIENTE").count(),
+        "confirmadas": Request.query.filter_by(status="CONFIRMADA").count(),
+        "rechazadas": Request.query.filter_by(status="RECHAZADA").count(),
+        "canceladas": Request.query.filter_by(status="CANCELADA").count(),
+    }
+
+    return jsonify(
+        {
+            "usuariosPorRol": usuarios_por_rol,
+            "recursosPorEstado": recursos_por_estado,
+            "solicitudesPorEstado": solicitudes_por_estado,
         }
     ), 200
 

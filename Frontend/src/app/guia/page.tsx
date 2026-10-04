@@ -5,7 +5,12 @@ import { PageTitle, Alert, Badge } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 
 export default function GuidePage() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isBibliotecaria } = useAuth();
+  const rolActual = isAdmin
+    ? "Administrador"
+    : isBibliotecaria
+      ? "Bibliotecaria"
+      : "Docente";
 
   return (
     <Layout>
@@ -65,7 +70,7 @@ export default function GuidePage() {
           <div className="space-y-2 text-xs">
             <p><strong>API URL:</strong> {process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000"}</p>
             <p><strong>Autenticación:</strong> JWT Bearer Token</p>
-            <p><strong>Rol actual:</strong> {isAdmin ? "Bibliotecaria" : "Docente"}</p>
+            <p><strong>Rol actual:</strong> {rolActual}</p>
           </div>
         </section>
         <section className="rounded-xl border border-border bg-white p-6">

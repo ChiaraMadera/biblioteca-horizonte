@@ -13,9 +13,14 @@ import { getRequests, getResources, getDashboardMetrics } from "@/lib/api";
 import type { Request, Resource, DashboardMetrics } from "@/lib/types";
 
 export default function DashboardPage() {
-  const { user, token, isAdmin } = useAuth();
+  const { user, token, isAdmin, isBibliotecaria } = useAuth();
   useAuthGuard();
   const router = useRouter();
+
+  // El administrador no tiene home propio: su única vista es /admin/*.
+  useEffect(() => {
+    if (user && isAdmin) router.replace("/admin/dashboard");
+  }, [user, isAdmin, router]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
@@ -33,7 +38,7 @@ export default function DashboardPage() {
       ]);
       setRequests(reqs);
       setResources(res);
-      if (isAdmin) {
+      if (isBibliotecaria) {
         try {
           const m = await getDashboardMetrics(token);
           setMetrics(m);
@@ -50,11 +55,11 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchData();
-  }, [token, isAdmin]);
+  }, [token, isBibliotecaria]);
 
   if (!user) return null;
 
-  const userRequests = isAdmin
+  const userRequests = isBibliotecaria
     ? requests
     : requests.filter((r) => r.user_id === user.id);
 
@@ -66,15 +71,15 @@ export default function DashboardPage() {
   return (
     <Layout>
       <PageTitle
-        eyebrow={isAdmin ? "Panel de gestión" : "Tu biblioteca, más cerca"}
-        title={isAdmin ? `Buen día, ${user.name.split(" ")[0]}` : `Hola, ${user.name.split(" ")[0]} 👋`}
+        eyebrow={isBibliotecaria ? "Panel de gestión" : "Tu biblioteca, más cerca"}
+        title={isBibliotecaria ? `Buen día, ${user.name.split(" ")[0]}` : `Hola, ${user.name.split(" ")[0]} 👋`}
         subtitle={
-          isAdmin
+          isBibliotecaria
             ? "Revisá las solicitudes y coordiná el uso de los recursos de la biblioteca."
             : "Gestioná tus solicitudes y encontrá el recurso para tu próxima clase."
         }
         action={
-          !isAdmin && (
+          !isBibliotecaria && (
             <Button onClick={() => router.push("/nueva-solicitud")}>
               <Plus size={16} />
               Nueva solicitud
@@ -89,7 +94,7 @@ export default function DashboardPage() {
         <ErrorState onRetry={fetchData} />
       ) : (
         <>
-          <div className="mb-6 grid gap-4 sm:grid-cols-3">
+          <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {(["PENDIENTE", "CONFIRMADA", "RECHAZADA", "CANCELADA"] as const).map((status) => {
               const count =
                 status === "PENDIENTE"
@@ -138,11 +143,11 @@ export default function DashboardPage() {
             <Info className="shrink-0" size={17} />
             <p>
               <span className="font-semibold">
-                {isAdmin
+                {isBibliotecaria
                   ? "Cada solicitud necesita tu revisión."
                   : "Una solicitud pendiente aún no está confirmada."}
               </span>{" "}
-              {isAdmin
+              {isBibliotecaria
                 ? "Verificá la disponibilidad antes de confirmar un recurso."
                 : "La bibliotecaria revisará y confirmará la disponibilidad del recurso."}
             </p>
@@ -152,16 +157,16 @@ export default function DashboardPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-5">
               <div className="flex items-center gap-2.5">
                 <h2 className="text-[15px] font-bold">
-                  {isAdmin ? "Solicitudes por revisar" : "Mis últimas solicitudes"}
+                  {isBibliotecaria ? "Solicitudes por revisar" : "Mis últimas solicitudes"}
                 </h2>
                 <span className="rounded-md bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
-                  {isAdmin
+                  {isBibliotecaria
                     ? userRequests.filter((r) => r.status === "PENDIENTE").length
                     : userRequests.length}
                 </span>
               </div>
               <Link
-                href={isAdmin ? "/pendientes" : "/solicitudes"}
+                href={isBibliotecaria ? "/pendientes" : "/solicitudes"}
                 className="flex items-center gap-2 text-[11px] font-semibold text-primary"
               >
                 Ver todas
@@ -169,12 +174,12 @@ export default function DashboardPage() {
               </Link>
             </div>
             <RequestTable
-              items={(isAdmin
+              items={(isBibliotecaria
                 ? userRequests.filter((r) => r.status === "PENDIENTE")
                 : userRequests
               ).slice(0, 4)}
               resources={resources}
-              admin={isAdmin}
+              admin={isBibliotecaria}
               compact
               onNewRequest={() => router.push("/nueva-solicitud")}
             />

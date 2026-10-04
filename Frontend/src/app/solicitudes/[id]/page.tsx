@@ -19,7 +19,7 @@ import type { Request, Resource } from "@/lib/types";
 
 export default function RequestDetailPage() {
   useAuthGuard();
-  const { token, user, isAdmin } = useAuth();
+  const { token, user, isBibliotecaria } = useAuth();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -55,10 +55,10 @@ export default function RequestDetailPage() {
 
   useEffect(() => {
     const action = searchParams.get("accion");
-    if (isAdmin && request?.status === "PENDIENTE" && (action === "confirmar" || action === "rechazar")) {
+    if (isBibliotecaria && request?.status === "PENDIENTE" && (action === "confirmar" || action === "rechazar")) {
       setModal(action);
     }
-  }, [searchParams, isAdmin, request?.status]);
+  }, [searchParams, isBibliotecaria, request?.status]);
 
   if (loading) {
     return (
@@ -80,7 +80,7 @@ export default function RequestDetailPage() {
     );
   }
 
-  if (!isAdmin && request.user_id !== user?.id) {
+  if (!isBibliotecaria && request.user_id !== user?.id) {
     return (
       <Layout>
         <EmptyState
@@ -127,7 +127,7 @@ export default function RequestDetailPage() {
     }
 
     // Procesar confirmación/rechazo (admin)
-    if (!isAdmin || request.status !== "PENDIENTE" || (modal !== "confirmar" && modal !== "rechazar")) return;
+    if (!isBibliotecaria || request.status !== "PENDIENTE" || (modal !== "confirmar" && modal !== "rechazar")) return;
     setProcessing(true);
     setActionError("");
     try {
@@ -147,11 +147,11 @@ export default function RequestDetailPage() {
     <Layout>
       <Button
         variant="ghost"
-        onClick={() => router.push(isAdmin ? "/pendientes" : "/solicitudes")}
+        onClick={() => router.push(isBibliotecaria ? "/pendientes" : "/solicitudes")}
         className="mb-5"
       >
         <ArrowLeft size={14} />
-        {isAdmin ? "Volver a solicitudes pendientes" : "Volver a mis solicitudes"}
+        {isBibliotecaria ? "Volver a solicitudes pendientes" : "Volver a mis solicitudes"}
       </Button>
       <PageTitle
         eyebrow={`${request.id} · Detalle de solicitud`}
@@ -265,7 +265,7 @@ export default function RequestDetailPage() {
               </div>
             </div>
           </div>
-          {isAdmin && request.status === "PENDIENTE" && (
+          {isBibliotecaria && request.status === "PENDIENTE" && (
             <div className="space-y-3 rounded-xl border border-border bg-white p-6">
               <h2 className="mb-4 text-sm font-bold">Revisar solicitud</h2>
               <Button className="w-full" onClick={() => setModal("confirmar")}>
@@ -286,7 +286,7 @@ export default function RequestDetailPage() {
               </p>
             </div>
           )}
-          {!isAdmin && request.status === "RECHAZADA" && (
+          {!isBibliotecaria && request.status === "RECHAZADA" && (
             <Button
               className="w-full"
               onClick={() => router.push(`/nueva-solicitud?recurso=${request.resource_id}`)}
@@ -295,7 +295,7 @@ export default function RequestDetailPage() {
               <ArrowRight size={15} />
             </Button>
           )}
-          {!isAdmin && (request.status === "PENDIENTE" || request.status === "CONFIRMADA") && (
+          {!isBibliotecaria && (request.status === "PENDIENTE" || request.status === "CONFIRMADA") && (
             <Button
               variant="secondary"
               className="w-full text-destructive"

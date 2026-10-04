@@ -25,7 +25,14 @@ def list_users():
     users, total = user_service.get_users(
         role=role, status=status, search=search, page=page, limit=limit
     )
-    return jsonify({"data": users_schema.dump(users), "total": total}), 200
+    # Mismo contrato de paginación que /api/requests/ y /api/resources/
+    return jsonify({
+        "items": users_schema.dump(users),
+        "page": page,
+        "per_page": limit,
+        "total": total,
+        "pages": -(-total // limit) if limit else 1,
+    }), 200
 
 
 @users_bp.route("/<user_id>", methods=["GET"])

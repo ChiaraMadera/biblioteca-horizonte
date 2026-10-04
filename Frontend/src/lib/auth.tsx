@@ -3,15 +3,16 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { getMe, login as apiLogin, ApiError } from "./api";
-import type { LoginRequest, Role, User } from "./types";
+import type { LoginRequest, User } from "./types";
 
 type AuthContextValue = {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (data: LoginRequest) => Promise<void>;
+  login: (data: LoginRequest) => Promise<User>;
   logout: () => void;
   isAdmin: boolean;
+  isBibliotecaria: boolean;
   isDocente: boolean;
 };
 
@@ -58,13 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
-  const login = async (data: LoginRequest) => {
+  const login = async (data: LoginRequest): Promise<User> => {
     try {
       const response = await apiLogin(data);
       setToken(response.token);
       setUser(response.user);
       localStorage.setItem("bh-token", JSON.stringify(response.token));
       localStorage.setItem("bh-user", JSON.stringify(response.user));
+      return response.user;
     } catch (error) {
       if (error instanceof ApiError) {
         throw new Error(error.message);
@@ -80,11 +82,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("bh-user");
   };
 
-  const isAdmin = user?.role === "bibliotecaria" || user?.role === "admin";
+  const isAdmin = user?.role === "admin";
+  const isBibliotecaria = user?.role === "bibliotecaria";
   const isDocente = user?.role === "docente";
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, isAdmin, isDocente }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        login,
+        logout,
+        isAdmin,
+        isBibliotecaria,
+        isDocente,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -151,6 +151,30 @@ export interface ErrorResponse {
   fieldErrors?: Record<string, string>;
 }
 
+export interface RoleCount {
+  activos: number;
+  dados_de_baja: number;
+  total: number;
+}
+
+export interface ConditionCount {
+  disponibles: number;
+  en_mantenimiento: number;
+  total: number;
+}
+
+/** Respuesta de GET /api/admin/reporte-usuarios (solo admin) */
+export interface SystemReport {
+  usuariosPorRol: Record<string, RoleCount>;
+  recursosPorEstado: Record<string, ConditionCount>;
+  solicitudesPorEstado: {
+    pendientes: number;
+    confirmadas: number;
+    rechazadas: number;
+    canceladas: number;
+  };
+}
+
 export interface PaginatedResponse<T> {
   items: T[];
   page: number;

@@ -20,6 +20,10 @@ import {
   CircleHelp,
   ArrowUpRight,
   ExternalLink,
+  Users,
+  BarChart3,
+  ShieldCheck,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth";
@@ -48,10 +52,16 @@ function Brand({ compact = false }: { compact?: boolean }) {
 }
 
 export function Layout({ children }: { children: ReactNode }) {
-  const { user, loading, logout, isAdmin } = useAuth();
+  const { user, loading, logout, isAdmin, isBibliotecaria } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
+
+  const roleLabel = isAdmin
+    ? "Administrador"
+    : isBibliotecaria
+      ? "Bibliotecaria"
+      : "Docente";
 
   useEffect(() => {
     setMobileOpen(false);
@@ -72,36 +82,58 @@ export function Layout({ children }: { children: ReactNode }) {
     .join("")
     .toUpperCase();
 
-  const navigation = [
-    { to: "/", label: "Inicio", icon: LayoutDashboard },
-    ...(isAdmin
-      ? [
-          { to: "/pendientes", label: "Solicitudes pendientes", icon: Clock3 },
-          { to: "/solicitudes", label: "Solicitudes", icon: FileText },
-          { to: "/recursos", label: "Recursos", icon: Library },
-        ]
-      : [
-          { to: "/recursos", label: "Recursos", icon: Library },
-          { to: "/nueva-solicitud", label: "Nueva solicitud", icon: Plus },
-          { to: "/solicitudes", label: "Mis solicitudes", icon: FileText },
-        ]),
-  ];
+  // El administrador solo ve el bloque «Administración»: no se cruza con las
+  // tareas del bibliotecario (solicitudes) ni con el espacio del docente.
+  const navigation = isAdmin
+    ? []
+    : [
+        { to: "/", label: "Inicio", icon: LayoutDashboard },
+        ...(isBibliotecaria
+          ? [
+              { to: "/pendientes", label: "Solicitudes pendientes", icon: Clock3 },
+              { to: "/solicitudes", label: "Solicitudes", icon: FileText },
+              { to: "/recursos", label: "Recursos", icon: Library },
+            ]
+          : [
+              { to: "/recursos", label: "Recursos", icon: Library },
+              { to: "/nueva-solicitud", label: "Nueva solicitud", icon: Plus },
+              { to: "/solicitudes", label: "Mis solicitudes", icon: FileText },
+            ]),
+      ];
 
-  const section = pathname.startsWith("/recursos")
-    ? "Recursos"
-    : pathname.startsWith("/nueva")
-      ? "Nueva solicitud"
-      : pathname.startsWith("/pendientes")
-        ? "Solicitudes pendientes"
-        : pathname.startsWith("/solicitudes")
-          ? isAdmin
-            ? "Solicitudes"
-            : "Mis solicitudes"
-          : pathname === "/perfil"
-            ? "Perfil"
-            : pathname === "/guia"
-              ? "Guía del sistema"
-              : "Inicio";
+  // Solo el administrador gestiona usuarios, recursos y reportes del sistema
+  const adminNavigation = isAdmin
+    ? [
+        { to: "/admin/dashboard", label: "Panel de control", icon: ShieldCheck },
+        { to: "/admin/usuarios", label: "Usuarios", icon: Users },
+        { to: "/admin/recursos", label: "Gestión de recursos", icon: LayoutGrid },
+        { to: "/admin/reportes", label: "Reportes", icon: BarChart3 },
+      ]
+    : [];
+
+  const section = pathname.startsWith("/admin")
+    ? pathname.startsWith("/admin/usuarios")
+      ? "Usuarios"
+      : pathname.startsWith("/admin/recursos")
+        ? "Gestión de recursos"
+        : pathname.startsWith("/admin/reportes")
+          ? "Reportes"
+          : "Panel de control"
+    : pathname.startsWith("/recursos")
+      ? "Recursos"
+      : pathname.startsWith("/nueva")
+        ? "Nueva solicitud"
+        : pathname.startsWith("/pendientes")
+          ? "Solicitudes pendientes"
+          : pathname.startsWith("/solicitudes")
+            ? isBibliotecaria
+              ? "Solicitudes"
+              : "Mis solicitudes"
+            : pathname === "/perfil"
+              ? "Perfil"
+              : pathname === "/guia"
+                ? "Guía del sistema"
+                : "Inicio";
 
   return (
     <div className="min-h-screen lg:pl-[238px]">
@@ -120,28 +152,65 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="px-6 pb-9 pt-8">
           <Brand />
         </div>
-        <div className="px-6 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
-          {isAdmin ? "Gestión de biblioteca" : "Mi espacio"}
-        </div>
-        <nav aria-label="Navegación principal" className="mt-4 space-y-1.5 px-3.5">
-          {navigation.map(({ to, label, icon: Icon }) => {
-            const isActive = to === "/" ? pathname === "/" : pathname.startsWith(to);
-            return (
-              <Link
-                key={to}
-                href={to}
-                className={`flex min-h-[45px] items-center gap-3 rounded-lg px-3.5 text-[13px] font-medium transition ${
-                  isActive
-                    ? "bg-accent text-primary"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                }`}
-              >
-                <Icon size={18} strokeWidth={1.65} />
-                <span className="flex-1">{label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        {navigation.length > 0 && (
+          <>
+            <div className="px-6 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">
+              {isBibliotecaria ? "Gestión de biblioteca" : "Mi espacio"}
+            </div>
+            <nav aria-label="Navegación principal" className="mt-4 space-y-1.5 px-3.5">
+              {navigation.map(({ to, label, icon: Icon }) => {
+                const isActive =
+                  to === "/" ? pathname === "/" : pathname.startsWith(to);
+                return (
+                  <Link
+                    key={to}
+                    href={to}
+                    className={`flex min-h-[45px] items-center gap-3 rounded-lg px-3.5 text-[13px] font-medium transition ${
+                      isActive
+                        ? "bg-accent text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon size={18} strokeWidth={1.65} />
+                    <span className="flex-1">{label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        )}
+
+        {adminNavigation.length > 0 && (
+          <>
+            <div
+              className={`${
+                navigation.length > 0 ? "mt-7 " : ""
+              }px-6 text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground`}
+            >
+              Administración
+            </div>
+            <nav aria-label="Administración" className="mt-4 space-y-1.5 px-3.5">
+              {adminNavigation.map(({ to, label, icon: Icon }) => {
+                const isActive = pathname.startsWith(to);
+                return (
+                  <Link
+                    key={to}
+                    href={to}
+                    className={`flex min-h-[45px] items-center gap-3 rounded-lg px-3.5 text-[13px] font-medium transition ${
+                      isActive
+                        ? "bg-accent text-primary"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon size={18} strokeWidth={1.65} />
+                    <span className="flex-1">{label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+        )}
+
         <div className="mt-7 border-t border-border px-3.5 pt-5">
           <Link
             href="/perfil"
@@ -189,7 +258,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <div>
               <span className="block text-xs font-semibold">{name}</span>
               <span className="mt-0.5 block text-[10px] text-muted-foreground">
-                {isAdmin ? "Bibliotecaria" : "Docente"}
+                {roleLabel}
               </span>
             </div>
             <span className="ml-auto size-1.5 rounded-full bg-primary" />
@@ -206,7 +275,11 @@ export function Layout({ children }: { children: ReactNode }) {
             <Menu size={21} />
           </button>
           <span className="hidden text-xs text-muted-foreground sm:block">
-            Mi espacio
+            {isAdmin
+              ? "Administración"
+              : isBibliotecaria
+                ? "Gestión de biblioteca"
+                : "Mi espacio"}
           </span>
           <ChevronRight className="hidden text-muted-foreground sm:block" size={13} />
           <span className="text-xs font-medium">{section}</span>

@@ -12,10 +12,16 @@ import { fieldClass } from "@/lib/utils";
 import type { Request, Resource, RequestStatus } from "@/lib/types";
 
 function RequestsContent() {
-  const { token, user, isAdmin } = useAuth();
+  const { token, user, isAdmin, isBibliotecaria } = useAuth();
   useAuthGuard();
   const router = useRouter();
   const searchParams = useSearchParams();
+
+  // El administrador no tiene sección de solicitudes: su única vista es
+  // /admin/* (panel de control, usuarios, gestión de recursos y reportes).
+  useEffect(() => {
+    if (user && isAdmin) router.replace("/admin/dashboard");
+  }, [user, isAdmin, router]);
   const [requests, setRequests] = useState<Request[]>([]);
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +57,7 @@ function RequestsContent() {
 
   if (!user) return null;
 
-  const userRequests = isAdmin
+  const userRequests = isBibliotecaria
     ? requests
     : requests.filter((r) => r.user_id === user.id);
 
@@ -64,11 +70,11 @@ function RequestsContent() {
   return (
     <>
       <PageTitle
-        eyebrow={isAdmin ? "Gestión de solicitudes" : "Seguimiento"}
-        title={isAdmin ? "Todas las solicitudes" : "Mis solicitudes"}
+        eyebrow={isBibliotecaria ? "Gestión de solicitudes" : "Seguimiento"}
+        title={isBibliotecaria ? "Todas las solicitudes" : "Mis solicitudes"}
         subtitle="Consultá el estado y los detalles de cada solicitud."
         action={
-          !isAdmin && (
+          !isBibliotecaria && (
             <Button onClick={() => router.push("/nueva-solicitud")}>
               <Plus size={16} />
               Nueva solicitud
@@ -111,7 +117,7 @@ function RequestsContent() {
             <Search className="absolute left-3 top-3 text-muted-foreground" size={15} />
             <input
               aria-label="Buscar solicitudes"
-              placeholder={isAdmin ? "Buscar recurso o docente…" : "Buscar solicitud…"}
+              placeholder={isBibliotecaria ? "Buscar recurso o docente…" : "Buscar solicitud…"}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               className={`${fieldClass} py-2.5 pl-9 text-xs`}
@@ -124,7 +130,7 @@ function RequestsContent() {
         ) : error ? (
           <ErrorState onRetry={fetchData} />
         ) : filtered.length ? (
-          <RequestTable items={filtered} resources={resources} admin={isAdmin} onNewRequest={() => router.push("/nueva-solicitud")} />
+          <RequestTable items={filtered} resources={resources} admin={isBibliotecaria} onNewRequest={() => router.push("/nueva-solicitud")} />
         ) : (
           <div className="p-5">
             <EmptyState
@@ -140,7 +146,7 @@ function RequestsContent() {
                     Limpiar búsqueda
                   </Button>
                 ) : (
-                  !isAdmin && (
+                  !isBibliotecaria && (
                     <Button onClick={() => router.push("/nueva-solicitud")}>
                       Nueva solicitud
                     </Button>

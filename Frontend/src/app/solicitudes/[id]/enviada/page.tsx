@@ -11,7 +11,7 @@ import { dateLabel } from "@/lib/utils";
 import type { Request, Resource } from "@/lib/types";
 
 export default function EnviadaPage() {
-  const { token, user, isAdmin } = useAuth();
+  const { token, user, isBibliotecaria } = useAuth();
   const params = useParams<{ id: string }>();
   const router = useRouter();
   const [request, setRequest] = useState<Request | null>(null);
@@ -92,8 +92,8 @@ export default function EnviadaPage() {
             ))}
           </dl>
           <div className="flex flex-wrap justify-center gap-3">
-            <Button onClick={() => router.push(isAdmin ? "/pendientes" : "/solicitudes")}>
-              {isAdmin ? "Ver solicitudes pendientes" : "Ver mis solicitudes"}
+            <Button onClick={() => router.push(isBibliotecaria ? "/pendientes" : "/solicitudes")}>
+              {isBibliotecaria ? "Ver solicitudes pendientes" : "Ver mis solicitudes"}
               <ArrowRight size={15} />
             </Button>
             <Button variant="secondary" onClick={() => router.push("/recursos")}>

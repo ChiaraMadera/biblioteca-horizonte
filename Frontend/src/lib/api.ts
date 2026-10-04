@@ -14,6 +14,7 @@ import type {
   Shift,
   Module,
   ResourceCategory,
+  SystemReport,
   UpdateResourceDTO,
   UpdateUserDTO,
   User,
@@ -131,13 +132,20 @@ export async function deleteUser(token: string, userId: string): Promise<{ messa
 // Resources
 export async function getResources(
   token: string,
-  params?: { category?: ResourceCategory; available?: boolean }
+  params?: { category?: ResourceCategory; available?: boolean; page?: number; limit?: number }
 ): Promise<Resource[]> {
   const searchParams = new URLSearchParams();
   if (params?.category) searchParams.set("category", params.category);
   if (params?.available !== undefined) searchParams.set("available", String(params.available));
+  if (params?.page) searchParams.set("page", String(params.page));
+  if (params?.limit) searchParams.set("limit", String(params.limit));
   const query = searchParams.toString();
-  return request<Resource[]>(`/resources/${query ? `?${query}` : ""}`, {}, token);
+  const response = await request<PaginatedResponse<Resource>>(
+    `/resources/${query ? `?${query}` : ""}`,
+    {},
+    token
+  );
+  return response.items;
 }
 
 export async function getResource(token: string, resourceId: string): Promise<Resource> {
@@ -268,6 +276,10 @@ export async function getDashboardMetrics(token: string): Promise<DashboardMetri
 
 export async function getAuditLogs(token: string): Promise<AuditLog[]> {
   return request<AuditLog[]>("/admin/audit-logs", {}, token);
+}
+
+export async function getSystemReport(token: string): Promise<SystemReport> {
+  return request<SystemReport>("/admin/reporte-usuarios", {}, token);
 }
 
 export { ApiError };

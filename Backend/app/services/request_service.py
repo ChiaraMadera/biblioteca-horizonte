@@ -50,10 +50,15 @@ def get_availability(resource_id: str, date: str, include_details: bool = False)
         Request.status.in_(["PENDIENTE", "CONFIRMADA"]),
     ).all()
 
-    occupied = {
-        (req.shift, req.module): req
-        for req in requests
-    }
+    # Una solicitud PENDIENTE NO garantiza la disponibilidad: solo una
+    # CONFIRMADA ocupa el cupo. Se conservan las pendientes para poder
+    # informarlas (include_details) sin marcar el slot como ocupado.
+    by_slot = {}
+    for req in requests:
+        key = (req.shift, req.module)
+        actual = by_slot.get(key)
+        if actual is None or (actual.status != "CONFIRMADA" and req.status == "CONFIRMADA"):
+            by_slot[key] = req
 
     slots = [
         ("Mañana · 08:00–12:00", "Módulo 1 · 08:00–09:20"),
@@ -67,12 +72,13 @@ def get_availability(resource_id: str, date: str, include_details: bool = False)
     result = []
 
     for shift, module in slots:
-        request = occupied.get((shift, module))
+        request = by_slot.get((shift, module))
+        confirmed = request is not None and request.status == "CONFIRMADA"
 
         slot = {
             "shift": shift,
             "module": module,
-            "available": request is None,
+            "available": not confirmed,
         }
 
         if include_details and request:
@@ -188,13 +194,13 @@ def create_request(data: dict, user_id: str):
         if ahora >= hora_inicio:
             return None, "El horario seleccionado ya comenzó."
 
-    # Verificar conflictos de horario
+    # Verificar conflictos de horario (solo CONFIRMADA bloquea; PENDIENTE no garantiza disponibilidad)
     conflict = Request.query.filter(
         Request.resource_id == data["resource_id"],
         Request.date == data["date"],
         Request.shift == data["shift"],
         Request.module == data["module"],
-        Request.status.in_(["PENDIENTE", "CONFIRMADA"]),
+        Request.status == "CONFIRMADA",
     ).first()
 
     if conflict:
@@ -297,13 +303,13 @@ def review_request(request_id: str, new_status: str, reviewer_id: str):
             Request.date == request.date,
             Request.shift == request.shift,
             Request.module == request.module,
-            Request.status.in_(["PENDIENTE", "CONFIRMADA"]),
+            Request.status == "CONFIRMADA",
             Request.id != request.id,
         ).first()
-   
 
-    if conflict:
-        return None, "El recurso ya está reservado en ese horario."
+        if conflict:
+            return None, "El recurso ya está reservado en ese horario."
+
     old_status = request.status
     request.status = new_status
     request.reviewed_by = reviewer_id
@@ -314,6 +320,40 @@ def review_request(request_id: str, new_status: str, reviewer_id: str):
         "new_status": new_status,
     })
 
+    # Al confirmarse, se avisa al docente y se verifican las demás
+    # solicitudes PENDIENTE para el mismo recurso/fecha/turno/módulo:
+    # como el cupo ya está ocupado, esas pendientes pasan a CANCELADA.
+    if new_status == "CONFIRMADA":
+        send_notification(
+            target_user_id=request.user_id,
+            subject="Solicitud confirmada",
+            message=(
+                f"Tu solicitud {request.id} para {request.resource_id} "
+                f"del {request.date} ({request.module}) fue CONFIRMADA."
+            ),
+            reference=request.id,
+        )
+
+        otras = Request.query.filter(
+            Request.resource_id == request.resource_id,
+            Request.date == request.date,
+            Request.shift == request.shift,
+            Request.module == request.module,
+            Request.status == "PENDIENTE",
+            Request.id != request.id,
+        ).all()
+
+        for otra in otras:
+            otra.status = "CANCELADA"
+            otra.reviewed_by = reviewer_id
+            otra.reviewed_at = datetime.now(ARGENTINA_TZ)
+
+            _log_audit(reviewer_id, "AUTO_CANCEL_PENDING", "Request", otra.id, {
+                "old_status": "PENDIENTE",
+                "new_status": "CANCELADA",
+                "reason": f"El cupo fue ocupado por la solicitud {request.id}",
+            })
+
     try:
         db.session.commit()
     except IntegrityError:
@@ -321,6 +361,23 @@ def review_request(request_id: str, new_status: str, reviewer_id: str):
         return None, "El recurso ya está reservado en ese horario."
 
     return request, None
+
+
+def send_notification(target_user_id, subject, message, reference=None):
+    """Notificación al docente.
+
+    Hoy queda registrada como traza de auditoría (acción NOTIFICATION).
+    El punto de extensión para enviar un correo real está acá.
+    """
+    log = AuditLog(
+        actor_id=target_user_id,
+        action="NOTIFICATION",
+        target_entity="Request",
+        target_id=reference,
+        details={"subject": subject, "message": message},
+    )
+    db.session.add(log)
+    return log
 
 
 def cancel_request(request_id: str, user_id: str):
@@ -338,7 +395,7 @@ def cancel_request(request_id: str, user_id: str):
     if user.status != "ACTIVO":
         return None, "El usuario no está activo."
 
-    if request.user_id != user_id:
+    if request.user_id != user_id and user.role != "bibliotecaria":
         return None, "No tenés permiso para cancelar esta solicitud."
 
     if request.status not in ["PENDIENTE", "CONFIRMADA"]:
