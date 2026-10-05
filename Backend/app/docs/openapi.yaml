@@ -1,0 +1,963 @@
+openapi: 3.0.3
+info:
+  title: Biblioteca Horizonte API
+  description: |
+    API REST para gestión de recursos de biblioteca (proyectores, notebooks,
+    espacios, material bibliográfico) con sistema de solicitudes y administración.
+
+    ## Regla central
+    Solo puede existir **1 reserva CONFIRMADA** para el mismo
+    `(resource_id, date, shift, module)`. Una solicitud PENDIENTE no bloquea el cupo.
+    Al confirmar se notifica al docente y se auto-cancelan las demás PENDIENTES del mismo cupo.
+
+    ## Roles
+    - **docente**: auth, ver recursos, crear/ver/cancelar sus propias solicitudes.
+    - **bibliotecaria**: ver todas las solicitudes, `review` (confirmar/rechazar/cancelar),
+      disponibilidad con detalle, dashboard. No administra usuarios ni da de baja recursos.
+    - **admin**: administración (usuarios, baja de recursos, reportes, audit-logs, dashboard).
+      No gestiona solicitudes ajenas (`GET /requests/` solo devuelve las suyas, `review` → 403).
+
+    ## Autenticación
+    JWT Bearer. Login en `/api/auth/login`, luego header:
+    `Authorization: Bearer <token>`. En Swagger UI usar el botón **Authorize**.
+  version: 1.0.0
+servers:
+  - url: http://127.0.0.1:5000
+    description: Desarrollo local (python run.py)
+  - url: http://localhost:5000
+    description: Desarrollo local alternativo
+tags:
+  - name: Auth
+    description: Login y perfil
+  - name: Users
+    description: Administración de usuarios
+  - name: Resources
+    description: Catálogo de recursos
+  - name: Requests
+    description: Solicitudes de reserva
+  - name: Admin
+    description: Dashboard, reportes y auditoría
+security:
+  - bearerAuth: []
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: docente1@horizonte.edu.ar
+              password: Docente123!
+      responses:
+        '200':
+          description: Token y usuario autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Perfil del token actual
+      responses:
+        '200':
+          description: Usuario actual
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/users/:
+    get:
+      tags: [Users]
+      summary: Listar usuarios (paginado)
+      description: Roles admin y bibliotecaria. Contrato único de paginación `items/page/per_page/total/pages`.
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [docente, bibliotecaria, admin]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVO, INACTIVO, SUSPENDIDO]
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Listado paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedUsers'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Users]
+      summary: Crear usuario (solo admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUser'
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /api/users/{user_id}:
+    get:
+      tags: [Users]
+      summary: Obtener usuario por ID
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '200':
+          description: Usuario
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Users]
+      summary: Actualizar usuario (solo admin)
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUser'
+      responses:
+        '200':
+          description: Usuario actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Users]
+      summary: Baja lógica de usuario (solo admin → status INACTIVO)
+      parameters:
+        - $ref: '#/components/parameters/UserIdParam'
+      responses:
+        '200':
+          description: Baja exitosa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Usuario dado de baja.
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/resources/:
+    get:
+      tags: [Resources]
+      summary: Listar recursos (paginado)
+      parameters:
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [Equipamiento, Espacios, Material bibliográfico]
+        - name: available
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Listado paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedResources'
+    post:
+      tags: [Resources]
+      summary: Crear recurso (admin, bibliotecaria)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateResource'
+            example:
+              id: proyector-99
+              name: Proyector Test Epson
+              category: Equipamiento
+              description: Proyector de prueba.
+              info: 1080p, HDMI.
+              icon: Projector
+              available: true
+              condition: EXCELENTE
+              serial_number: TEST-001
+              location: Biblioteca · Estantería A9
+              tone: bg-blue-50 text-blue-600
+      responses:
+        '201':
+          description: Recurso creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /api/resources/{resource_id}:
+    get:
+      tags: [Resources]
+      summary: Obtener recurso por ID (slug)
+      parameters:
+        - $ref: '#/components/parameters/ResourceIdParam'
+      responses:
+        '200':
+          description: Recurso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags: [Resources]
+      summary: Actualizar recurso (admin, bibliotecaria)
+      parameters:
+        - $ref: '#/components/parameters/ResourceIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateResource'
+      responses:
+        '200':
+          description: Recurso actualizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Resources]
+      summary: Baja lógica de recurso (solo admin → available false)
+      parameters:
+        - $ref: '#/components/parameters/ResourceIdParam'
+      responses:
+        '200':
+          description: Baja exitosa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Recurso dado de baja.
+
+  /api/requests/:
+    get:
+      tags: [Requests]
+      summary: Listar solicitudes (paginado)
+      description: |
+        Solo la bibliotecaria ve el listado completo.
+        Docente y admin ven únicamente las suyas (el filtro user_id se fuerza al ID del token).
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PENDIENTE, CONFIRMADA, RECHAZADA, CANCELADA]
+        - name: user_id
+          in: query
+          schema:
+            type: string
+        - name: resource_id
+          in: query
+          schema:
+            type: string
+        - $ref: '#/components/parameters/PageParam'
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Listado paginado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedRequests'
+    post:
+      tags: [Requests]
+      summary: Crear solicitud
+      description: |
+        Valida usuario activo, recurso disponible, fecha hábil/no pasada,
+        anticipación máxima 60 días, coherencia turno/módulo y conflicto
+        (solo CONFIRMADA bloquea).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequest'
+            example:
+              resource_id: proyector-01
+              teacher: Juan Pérez
+              date: '2026-10-20'
+              shift: 'Mañana · 08:00–12:00'
+              module: 'Módulo 1 · 08:00–09:20'
+              notes: Clase de historia
+      responses:
+        '201':
+          description: Solicitud creada (PENDIENTE)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+  /api/requests/availability:
+    get:
+      tags: [Requests]
+      summary: Disponibilidad de módulos para un recurso/fecha
+      description: Solo las CONFIRMADA ocupan el slot. El detalle reason/request_id solo se incluye para bibliotecaria.
+      parameters:
+        - name: resource_id
+          in: query
+          required: true
+          schema:
+            type: string
+          example: proyector-01
+        - name: date
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+          example: '2026-10-20'
+      responses:
+        '200':
+          description: Slots de disponibilidad
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Availability'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+  /api/requests/{request_id}:
+    get:
+      tags: [Requests]
+      summary: Detalle de solicitud (dueño o bibliotecaria)
+      parameters:
+        - $ref: '#/components/parameters/RequestIdParam'
+      responses:
+        '200':
+          description: Solicitud
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/requests/{request_id}/cancel:
+    patch:
+      tags: [Requests]
+      summary: Cancelar solicitud (dueño o bibliotecaria)
+      parameters:
+        - $ref: '#/components/parameters/RequestIdParam'
+      responses:
+        '200':
+          description: Solicitud cancelada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/requests/{request_id}/review:
+    patch:
+      tags: [Requests]
+      summary: Revisar solicitud (solo bibliotecaria)
+      description: Cambia PENDIENTE → CONFIRMADA/RECHAZADA/CANCELADA. Al confirmar re-verifica el slot, notifica al docente y auto-cancela las demás PENDIENTES.
+      parameters:
+        - $ref: '#/components/parameters/RequestIdParam'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewRequest'
+            example:
+              status: CONFIRMADA
+      responses:
+        '200':
+          description: Solicitud revisada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Request'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+
+  /api/admin/dashboard:
+    get:
+      tags: [Admin]
+      summary: Métricas del panel (admin, bibliotecaria)
+      responses:
+        '200':
+          description: Métricas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Dashboard'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/admin/reporte-usuarios:
+    get:
+      tags: [Admin]
+      summary: Informe de usuarios/recursos/solicitudes (solo admin)
+      responses:
+        '200':
+          description: Reporte
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReporteUsuarios'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/admin/audit-logs:
+    get:
+      tags: [Admin]
+      summary: Últimos 100 registros de auditoría (solo admin)
+      responses:
+        '200':
+          description: Logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuditLog'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+    LimitParam:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 10
+    UserIdParam:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ResourceIdParam:
+      name: resource_id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: proyector-01
+    RequestIdParam:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+      example: BH-0001
+  responses:
+    BadRequest:
+      description: Petición inválida / regla de negocio
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Sin token, token vencido o credenciales inválidas
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Rol insuficiente o recurso ajeno
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Entidad inexistente
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Conflicto (slot ocupado, email/DNI duplicado)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationError:
+      description: Error de validación Marshmallow
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+  schemas:
+    Error:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: Not Found
+        message:
+          type: string
+          example: Recurso no encontrado.
+    ValidationError:
+      allOf:
+        - $ref: '#/components/schemas/Error'
+        - type: object
+          properties:
+            fieldErrors:
+              type: object
+              example:
+                date: [La fecha no puede ser anterior a hoy.]
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [docente, bibliotecaria, admin]
+        status:
+          type: string
+          enum: [ACTIVO, INACTIVO, SUSPENDIDO]
+        dni:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+    CreateUser:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+        role:
+          type: string
+          enum: [docente, bibliotecaria, admin]
+        dni:
+          type: string
+        phone:
+          type: string
+    UpdateUser:
+      type: object
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [docente, bibliotecaria, admin]
+        status:
+          type: string
+          enum: [ACTIVO, INACTIVO, SUSPENDIDO]
+        dni:
+          type: string
+        phone:
+          type: string
+    PaginatedUsers:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/User'
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+    Resource:
+      type: object
+      properties:
+        id:
+          type: string
+          example: proyector-01
+        name:
+          type: string
+        category:
+          type: string
+          enum: [Equipamiento, Espacios, Material bibliográfico]
+        description:
+          type: string
+        info:
+          type: string
+        icon:
+          type: string
+        available:
+          type: boolean
+        condition:
+          type: string
+          enum: [EXCELENTE, BUENO, EN_MANTENIMIENTO, FUERA_DE_SERVICIO]
+        serial_number:
+          type: string
+          nullable: true
+        location:
+          type: string
+          nullable: true
+        tone:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    CreateResource:
+      type: object
+      required: [id, name, category, description, info, icon, tone]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        category:
+          type: string
+          enum: [Equipamiento, Espacios, Material bibliográfico]
+        description:
+          type: string
+        info:
+          type: string
+        icon:
+          type: string
+        available:
+          type: boolean
+          default: true
+        condition:
+          type: string
+          enum: [EXCELENTE, BUENO, EN_MANTENIMIENTO, FUERA_DE_SERVICIO]
+          default: EXCELENTE
+        serial_number:
+          type: string
+        location:
+          type: string
+        tone:
+          type: string
+    UpdateResource:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+          enum: [Equipamiento, Espacios, Material bibliográfico]
+        description:
+          type: string
+        info:
+          type: string
+        icon:
+          type: string
+        available:
+          type: boolean
+        condition:
+          type: string
+          enum: [EXCELENTE, BUENO, EN_MANTENIMIENTO, FUERA_DE_SERVICIO]
+        serial_number:
+          type: string
+        location:
+          type: string
+        tone:
+          type: string
+    PaginatedResources:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Resource'
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+    Request:
+      type: object
+      properties:
+        id:
+          type: string
+          example: BH-0001
+        resource_id:
+          type: string
+        user_id:
+          type: string
+        teacher:
+          type: string
+        date:
+          type: string
+          format: date
+        shift:
+          type: string
+          enum: ['Mañana · 08:00–12:00', 'Tarde · 13:00–17:00']
+        module:
+          type: string
+          enum:
+            - 'Módulo 1 · 08:00–09:20'
+            - 'Módulo 2 · 09:30–10:50'
+            - 'Módulo 3 · 11:00–12:00'
+            - 'Módulo 1 · 13:00–14:20'
+            - 'Módulo 2 · 14:30–15:50'
+            - 'Módulo 3 · 16:00–17:00'
+        notes:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [PENDIENTE, CONFIRMADA, RECHAZADA, CANCELADA]
+        created_at:
+          type: string
+          format: date-time
+        reviewed_by:
+          type: string
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+    CreateRequest:
+      type: object
+      required: [resource_id, teacher, date, shift, module]
+      properties:
+        resource_id:
+          type: string
+        teacher:
+          type: string
+        date:
+          type: string
+          format: date
+        shift:
+          type: string
+          enum: ['Mañana · 08:00–12:00', 'Tarde · 13:00–17:00']
+        module:
+          type: string
+          enum:
+            - 'Módulo 1 · 08:00–09:20'
+            - 'Módulo 2 · 09:30–10:50'
+            - 'Módulo 3 · 11:00–12:00'
+            - 'Módulo 1 · 13:00–14:20'
+            - 'Módulo 2 · 14:30–15:50'
+            - 'Módulo 3 · 16:00–17:00'
+        notes:
+          type: string
+    ReviewRequest:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [CONFIRMADA, RECHAZADA, CANCELADA]
+    PaginatedRequests:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Request'
+        page:
+          type: integer
+        per_page:
+          type: integer
+        total:
+          type: integer
+        pages:
+          type: integer
+    Availability:
+      type: object
+      properties:
+        slots:
+          type: array
+          items:
+            type: object
+            properties:
+              shift:
+                type: string
+              module:
+                type: string
+              available:
+                type: boolean
+              reason:
+                type: string
+              request_id:
+                type: string
+    Dashboard:
+      type: object
+      properties:
+        totalResources:
+          type: integer
+        activeUsers:
+          type: integer
+        totalRequestsThisMonth:
+          type: integer
+        pendingRequests:
+          type: integer
+        confirmedRequests:
+          type: integer
+        rejectedRequests:
+          type: integer
+        mostRequestedResources:
+          type: array
+          items:
+            type: object
+            properties:
+              resourceId:
+                type: string
+              resourceName:
+                type: string
+              requestCount:
+                type: integer
+    ReporteUsuarios:
+      type: object
+      properties:
+        usuariosPorRol:
+          type: object
+        recursosPorEstado:
+          type: object
+        solicitudesPorEstado:
+          type: object
+    AuditLog:
+      type: object
+      properties:
+        id:
+          type: integer
+        actorId:
+          type: string
+          nullable: true
+        action:
+          type: string
+        targetEntity:
+          type: string
+        targetId:
+          type: string
+        details:
+          type: string
+        timestamp:
+          type: string
+          format: date-time

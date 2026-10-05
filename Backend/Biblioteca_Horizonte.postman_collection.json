@@ -1,0 +1,539 @@
+{
+	"info": {
+		"name": "Biblioteca Horizonte - Backend API",
+		"description": "Colección Postman generada a partir del análisis del código en app/routes/ (auth, users, resources, requests, admin) y app/schemas/. Base URL por defecto: http://127.0.0.1:5000 (run.py). Flujo sugerido: 1) Login con los 3 roles (los tests guardan los tokens en variables), 2) probar Resources/Requests, 3) Admin.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"variable": [
+		{ "key": "base_url", "value": "http://127.0.0.1:5000", "type": "string" },
+		{ "key": "token_admin", "value": "", "type": "string" },
+		{ "key": "token_biblio", "value": "", "type": "string" },
+		{ "key": "token_docente", "value": "", "type": "string" },
+		{ "key": "resource_id", "value": "proyector-01", "type": "string" },
+		{ "key": "request_id", "value": "BH-XXXX", "type": "string" },
+		{ "key": "user_id", "value": "REEMPLAZAR_USER_ID", "type": "string" }
+	],
+	"auth": {
+		"type": "bearer",
+		"bearertoken": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+	},
+	"item": [
+		{
+			"name": "00 - Auth",
+			"item": [
+				{
+					"name": "Login - Admin",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/api/auth/login",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@horizonte.edu.ar\",\n  \"password\": \"Admin123!\"\n}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var json = pm.response.json();",
+									"if (json.token) { pm.collectionVariables.set('token_admin', json.token); }"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Login - Bibliotecaria",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/api/auth/login",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"biblioteca@horizonte.edu.ar\",\n  \"password\": \"Biblioteca123!\"\n}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var json = pm.response.json();",
+									"if (json.token) { pm.collectionVariables.set('token_biblio', json.token); }"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Login - Docente 1",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/api/auth/login",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"docente1@horizonte.edu.ar\",\n  \"password\": \"Docente123!\"\n}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var json = pm.response.json();",
+									"if (json.token) { pm.collectionVariables.set('token_docente', json.token); }"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Login - Docente 2",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/api/auth/login",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"docente2@horizonte.edu.ar\",\n  \"password\": \"Docente123!\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Get Perfil - me (docente)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/auth/me",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Get Perfil - me (admin)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/auth/me",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "01 - Users (admin, bibliotecaria)",
+			"item": [
+				{
+					"name": "Listar usuarios",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/users/?page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", ""],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "10" }
+							]
+						},
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Listar usuarios con filtros",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/users/?role=docente&status=ACTIVO&search=juan&page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", ""],
+							"query": [
+								{ "key": "role", "value": "docente" },
+								{ "key": "status", "value": "ACTIVO" },
+								{ "key": "search", "value": "juan" },
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "10" }
+							]
+						},
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Obtener usuario por ID",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/users/{{user_id}}",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Crear usuario (solo admin)",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/api/users/",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Docente Prueba\",\n  \"email\": \"docente.prueba@horizonte.edu.ar\",\n  \"password\": \"Docente123!\",\n  \"role\": \"docente\",\n  \"dni\": \"30123456\",\n  \"phone\": \"351-1234567\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Actualizar usuario (solo admin)",
+					"request": {
+						"method": "PUT",
+						"url": "{{base_url}}/api/users/{{user_id}}",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Docente Prueba Actualizado\",\n  \"phone\": \"351-7654321\",\n  \"status\": \"ACTIVO\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Baja lógica usuario (solo admin)",
+					"request": {
+						"method": "DELETE",
+						"url": "{{base_url}}/api/users/{{user_id}}",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "02 - Resources",
+			"item": [
+				{
+					"name": "Listar recursos",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/resources/?page=1&limit=100",
+							"host": ["{{base_url}}"],
+							"path": ["api", "resources", ""],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "100" }
+							]
+						},
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Listar recursos con filtros",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/resources/?category=Equipamiento&available=true&page=1&limit=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "resources", ""],
+							"query": [
+								{ "key": "category", "value": "Equipamiento", "description": "Equipamiento | Espacios | Material bibliográfico" },
+								{ "key": "available", "value": "true" },
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "10" }
+							]
+						},
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Obtener recurso por ID",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/resources/{{resource_id}}",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Crear recurso (admin, biblio)",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/api/resources/",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"id\": \"proyector-99\",\n  \"name\": \"Proyector Test Epson\",\n  \"category\": \"Equipamiento\",\n  \"description\": \"Proyector de prueba para Postman.\",\n  \"info\": \"1080p, HDMI. Incluye control.\",\n  \"icon\": \"Projector\",\n  \"available\": true,\n  \"condition\": \"EXCELENTE\",\n  \"serial_number\": \"TEST-001\",\n  \"location\": \"Biblioteca · Estantería A9\",\n  \"tone\": \"bg-blue-50 text-blue-600\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Actualizar recurso (admin, biblio)",
+					"request": {
+						"method": "PUT",
+						"url": "{{base_url}}/api/resources/{{resource_id}}",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"Proyector Epson EB-X06 (actualizado)\",\n  \"condition\": \"BUENO\",\n  \"location\": \"Biblioteca · Estantería A1\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Baja lógica recurso (solo admin)",
+					"request": {
+						"method": "DELETE",
+						"url": "{{base_url}}/api/resources/{{resource_id}}",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "03 - Requests",
+			"item": [
+				{
+					"name": "Listar solicitudes (biblio ve todo)",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/requests/?page=1&per_page=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "requests", ""],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "per_page", "value": "10" }
+							]
+						},
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_biblio}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Listar solicitudes con filtros",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/requests/?status=PENDIENTE&resource_id=proyector-01&page=1&per_page=10",
+							"host": ["{{base_url}}"],
+							"path": ["api", "requests", ""],
+							"query": [
+								{ "key": "status", "value": "PENDIENTE", "description": "PENDIENTE | CONFIRMADA | RECHAZADA | CANCELADA" },
+								{ "key": "resource_id", "value": "proyector-01" },
+								{ "key": "page", "value": "1" },
+								{ "key": "per_page", "value": "10" }
+							]
+						},
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_biblio}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Listar mis solicitudes (docente)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/requests/?page=1&per_page=10",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Disponibilidad",
+					"request": {
+						"method": "GET",
+						"url": {
+							"raw": "{{base_url}}/api/requests/availability?resource_id=proyector-01&date=2026-10-20",
+							"host": ["{{base_url}}"],
+							"path": ["api", "requests", "availability"],
+							"query": [
+								{ "key": "resource_id", "value": "proyector-01" },
+								{ "key": "date", "value": "2026-10-20", "description": "YYYY-MM-DD, fecha hábil futura, máx 60 días anticipación" }
+							]
+						},
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Obtener solicitud por ID",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/requests/{{request_id}}",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_biblio}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Crear solicitud - turno mañana (docente)",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/api/requests/",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"resource_id\": \"proyector-01\",\n  \"teacher\": \"Juan Pérez\",\n  \"date\": \"2026-10-20\",\n  \"shift\": \"Mañana · 08:00–12:00\",\n  \"module\": \"Módulo 1 · 08:00–09:20\",\n  \"notes\": \"Clase de historia - presentación\"\n}"
+						}
+					},
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"var json = pm.response.json();",
+									"if (json.id) { pm.collectionVariables.set('request_id', json.id); }"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Crear solicitud - turno tarde (docente)",
+					"request": {
+						"method": "POST",
+						"url": "{{base_url}}/api/requests/",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"resource_id\": \"notebook-01\",\n  \"teacher\": \"Juan Pérez\",\n  \"date\": \"2026-10-21\",\n  \"shift\": \"Tarde · 13:00–17:00\",\n  \"module\": \"Módulo 2 · 14:30–15:50\",\n  \"notes\": \"Taller de informática\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Revisar solicitud - CONFIRMAR (solo biblio)",
+					"request": {
+						"method": "PATCH",
+						"url": "{{base_url}}/api/requests/{{request_id}}/review",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_biblio}}", "type": "string" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"CONFIRMADA\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Revisar solicitud - RECHAZAR (solo biblio)",
+					"request": {
+						"method": "PATCH",
+						"url": "{{base_url}}/api/requests/{{request_id}}/review",
+						"header": [{ "key": "Content-Type", "value": "application/json" }],
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_biblio}}", "type": "string" }]
+						},
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"status\": \"RECHAZADA\"\n}"
+						}
+					}
+				},
+				{
+					"name": "Cancelar solicitud (dueño o biblio)",
+					"request": {
+						"method": "PATCH",
+						"url": "{{base_url}}/api/requests/{{request_id}}/cancel",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_docente}}", "type": "string" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "04 - Admin",
+			"item": [
+				{
+					"name": "Dashboard (admin, biblio)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/admin/dashboard",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Reporte usuarios (solo admin)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/admin/reporte-usuarios",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				},
+				{
+					"name": "Audit logs (solo admin)",
+					"request": {
+						"method": "GET",
+						"url": "{{base_url}}/api/admin/audit-logs",
+						"auth": {
+							"type": "bearer",
+							"bearer": [{ "key": "token", "value": "{{token_admin}}", "type": "string" }]
+						}
+					}
+				}
+			]
+		}
+	]
+}

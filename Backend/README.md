@@ -141,6 +141,13 @@ sqlite3 instance/biblioteca_horizonte.db "UPDATE requests SET resource_id = 'pro
 sqlite3 instance/biblioteca_horizonte.db "UPDATE requests SET resource_id = 'proyector-02' WHERE resource_id = 'res-esp-01';"
 ```
 
+## Documentación API (Swagger)
+
+* **Swagger UI:** `http://127.0.0.1:5000/api/docs/` (botón Authorize con el JWT de `/api/auth/login`)
+* **Spec:** `GET /openapi.yaml` — fuente única en `app/docs/openapi.yaml`
+* **Guía completa:** [`API_DOCUMENTATION.md`](API_DOCUMENTATION.md)
+* **Postman:** [`Biblioteca_Horizonte.postman_collection.json`](Biblioteca_Horizonte.postman_collection.json)
+
 ## Notificaciones
 
 `request_service.send_notification(target_user_id, subject, message, reference)` es el punto único de notificación al docente. Hoy deja una traza en `AuditLog` con acción `NOTIFICATION`; ahí se debe conectar el envío real de correo o mensajería.

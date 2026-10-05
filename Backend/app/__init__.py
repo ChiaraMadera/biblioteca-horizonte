@@ -23,12 +23,15 @@ def create_app(config_class=Config):
     from app.routes.resources import resources_bp
     from app.routes.requests import requests_bp
     from app.routes.admin import admin_bp
+    from app.docs.swagger import docs_bp, swagger_ui_bp, SWAGGER_URL
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
     app.register_blueprint(users_bp, url_prefix="/api/users")
     app.register_blueprint(resources_bp, url_prefix="/api/resources")
     app.register_blueprint(requests_bp, url_prefix="/api/requests")
     app.register_blueprint(admin_bp, url_prefix="/api/admin")
+    app.register_blueprint(docs_bp)
+    app.register_blueprint(swagger_ui_bp, url_prefix=SWAGGER_URL)
 
     register_error_handlers(app)
 
