@@ -5,6 +5,7 @@
 | Campo | Valor |
 |---|---|
 | **Código** | BH-16 |
+| **Grupo** | Grupo D |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
 | **Fecha** | 2026-10-04 |
 | **Versión** | 1.1 – sincronizado con el código: HU-08 corregida (login real), estados de implementación, +HU-15 y HU-16 |

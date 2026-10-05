@@ -133,7 +133,7 @@ python -c "from app import create_app; from app.extensions import db; app = crea
 python run.py
 
 # Ejecutar migración de recursos (2 proyectores y 4 notebooks)
-# ⚠️  ADVERTENCIA: Este script elimina todos los recursos existentes y los reemplaza
+# ADVERTENCIA: Este script elimina todos los recursos existentes y los reemplaza
 python seed.py
 
 # Actualizar referencias en solicitudes existentes (si las hay)

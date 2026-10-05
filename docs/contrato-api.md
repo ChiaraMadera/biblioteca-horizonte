@@ -5,6 +5,7 @@
 | Campo | Valor |
 |---|---|
 | **Código** | BH-17 |
+| **Grupo** | Grupo D |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
 | **Fecha** | 2026-10-04 |
 | **Versión** | 1.3 — sincronizado con los commits `ba345e7`/`3bd27b0`: 21 endpoints, `review` solo `bibliotecaria`, paginación unificada, índice único de respaldo (B-02) |
@@ -91,7 +92,7 @@ Respuesta de listado **paginada** (formato unificado en los 3 listados — B-06 
 
 | Método | Ruta | Rol | Notas |
 |---|---|---|---|
-| GET | `/api/requests/?status=&user_id=&resource_id=&page=&per_page=` | Autenticado | Paginado (B-06 ✅). **Solo `bibliotecaria` ve el listado completo**: docente y admin ven únicamente las propias |
+| GET | `/api/requests/?status=&user_id=&resource_id=&page=&per_page=` | Autenticado | Paginado (B-06). **Solo `bibliotecaria` ve el listado completo**: docente y admin ven únicamente las propias |
 | GET | `/api/requests/availability?resource_id=&date=` | Autenticado | Disponibilidad del día: `{slots:[{shift, module, available}]}`; solo `bibliotecaria` recibe además `reason`/`request_id`. 400 si faltan los parámetros |
 | GET | `/api/requests/<id>` | Dueño; bibliotecaria | 403 si es ajena y el rol no es `bibliotecaria` (**admin → 403**: no gestiona solicitudes) |
 | POST | `/api/requests/` | Autenticado | 201 · 409 si hay conflicto |
@@ -228,16 +229,16 @@ Respuesta de listado **paginada** (formato unificado en los 3 listados — B-06 
 
 ## 6. Known issues del contrato (al 04/10/2026)
 
-Tabla propia de este contrato; el detalle de todas las brechas vive en `03_Diseno/02_Estados_y_reglas.md` §7 (fuente única).
+Tabla propia de este contrato; el detalle de todas las brechas vive en `03_Diseno/02_Estados_y_reglas.md`, sección 7 (fuente única).
 
 | # | Issue | Efecto | Brecha | Estado |
 |---|---|---|---|---|
-| 1 | `review` resolvía el duplicado con **400** en lugar de **409** | El front no distinguía el duplicado de un error genérico | B-03 (relacionada) | ✅ Cerrado — hoy responde **409** |
-| 2 | `GET /api/requests/` sin paginación | Rendimiento con muchos registros (RNF04) | B-06 | ✅ Cerrado — `{items, page, per_page, total, pages}` en los 3 listados |
-| 3 | `CORS(app)` sin restricción de orígenes (`datetime.utcnow` ya no se usa: todos los timestamps usan `America/Argentina/Cordoba`) | Seguridad/robustez | B-08 | ⚠️ Parcial — tz ✅ · CORS ❌ abierto |
-| 4 | Sin `.env.example` (el `migrations/` ya está inicializado con Alembic) | RNF07 (ejecución en otra computadora) | B-14, B-13 | ⚠️ B-13 ✅ Cerrada · B-14 ❌ Abierta |
-| 5 | ID `BH-XXXX` generado sin transacción (`max()+1` en el servicio) | Colisiones ante concurrencia | B-10 | ❌ Abierto |
-| 6 | Regla central sin índice único de respaldo en BD | Única barrera restante para RF07 | B-02 | ✅ Cerrado — `uq_confirmed_request_slot` (parcial, `WHERE status='CONFIRMADA'`) + `IntegrityError` → 409 |
+| 1 | `review` resolvía el duplicado con **400** en lugar de **409** | El front no distinguía el duplicado de un error genérico | B-03 (relacionada) | Cerrado — hoy responde **409** |
+| 2 | `GET /api/requests/` sin paginación | Rendimiento con muchos registros (RNF04) | B-06 | Cerrado — `{items, page, per_page, total, pages}` en los 3 listados |
+| 3 | `CORS(app)` sin restricción de orígenes (`datetime.utcnow` ya no se usa: todos los timestamps usan `America/Argentina/Cordoba`) | Seguridad/robustez | B-08 | Parcial — tz resuelta · CORS sigue abierto |
+| 4 | Sin `.env.example` (el `migrations/` ya está inicializado con Alembic) | RNF07 (ejecución en otra computadora) | B-14, B-13 | B-13 Cerrada · B-14 Abierta |
+| 5 | ID `BH-XXXX` generado sin transacción (`max()+1` en el servicio) | Colisiones ante concurrencia | B-10 | Abierto |
+| 6 | Regla central sin índice único de respaldo en BD | Única barrera restante para RF07 | B-02 | Cerrado — `uq_confirmed_request_slot` (parcial, `WHERE status='CONFIRMADA'`) + `IntegrityError` → 409 |
 
 **Sin known issues abiertos que afecten el formato del contrato.** Los pendientes (B-08 CORS, B-10 IDs, B-14 `.env.example`) no cambian request/response.
 

@@ -114,7 +114,7 @@ def migrate_resources():
         print(f"Recursos existentes: {existing_count}")
         
         if existing_count > 0:
-            print("\n⚠️  ADVERTENCIA: Se eliminarán todos los recursos existentes.")
+            print("\nADVERTENCIA: Se eliminarán todos los recursos existentes.")
             print("   Esto es necesario para cumplir con la lista fija del análisis técnico (B-07).")
             print()
             

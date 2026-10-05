@@ -5,6 +5,7 @@
 | Campo | Valor |
 |---|---|
 | **Código** | BH-14 |
+| **Grupo** | Grupo D |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
 | **Fecha** | 2026-10-04 |
 | **Versión** | 1.2 — reglas RN-01…RN-14; sincronizado con los commits `ba345e7`/`3bd27b0` |
@@ -59,24 +60,24 @@ Set único de reglas para todo el proyecto (docx, docs/ y carpetas locales). La 
 
 | ID | Regla | Origen | RB / Req. | Estado en el código |
 |---|---|---|---|---|
-| RN-01 | Una solicitud es de 1 recurso, para 1 fecha y 1 módulo horario de la escuela (con su turno) | Caso | RB04 | ✅ `CreateRequestSchema` (OneOf) + `create_request` |
-| RN-02 | Solo puede existir 1 reserva CONFIRMADA para el mismo recurso, fecha, turno y módulo | Caso | RB01 (RF07) | ✅ validado al crear y al confirmar (B-01) + **índice único en BD** `uq_confirmed_request_slot` con `IntegrityError` → 409 (B-02 cerrada) |
-| RN-03 | Una solicitud pendiente no garantiza disponibilidad; pueden coexistir varias pendientes para el mismo horario | Caso | RB02 (RF04) | ✅ default `PENDIENTE`; `GET /availability` marca cupo ocupado solo con `CONFIRMADA` |
-| RN-04 | Solo la bibliotecaria confirma o rechaza (el administrador no gestiona solicitudes). Un rechazo exige un motivo | Propuesta | RB03 | ⚠ rol ✅ (`@role_required("bibliotecaria")` → 403 para docente y admin) · motivo ❌ sin campo en el modelo → fuera de alcance (§2.3) |
-| RN-05 | Se reserva por módulos completos y predefinidos; no hay intervalos superpuestos | Caso | RB04 | ✅ catálogo fijo de turnos/módulos (D-02) |
-| RN-06 | No se puede solicitar una reserva para una fecha pasada | Propuesta | RB07 | ✅ schema (422) y servicio (409) — B-04 cerrada |
+| RN-01 | Una solicitud es de 1 recurso, para 1 fecha y 1 módulo horario de la escuela (con su turno) | Caso | RB04 | `CreateRequestSchema` (OneOf) + `create_request` |
+| RN-02 | Solo puede existir 1 reserva CONFIRMADA para el mismo recurso, fecha, turno y módulo | Caso | RB01 (RF07) | Validado al crear y al confirmar (B-01) + **índice único en BD** `uq_confirmed_request_slot` con `IntegrityError` → 409 (B-02 cerrada) |
+| RN-03 | Una solicitud pendiente no garantiza disponibilidad; pueden coexistir varias pendientes para el mismo horario | Caso | RB02 (RF04) | Default `PENDIENTE`; `GET /availability` marca cupo ocupado solo con `CONFIRMADA` |
+| RN-04 | Solo la bibliotecaria confirma o rechaza (el administrador no gestiona solicitudes). Un rechazo exige un motivo | Propuesta | RB03 | Parcial — rol correcto: `@role_required("bibliotecaria")` → 403 para docente y admin · motivo: sin campo en el modelo → fuera de alcance (sección 2.3) |
+| RN-05 | Se reserva por módulos completos y predefinidos; no hay intervalos superpuestos | Caso | RB04 | Catálogo fijo de turnos/módulos (D-02) |
+| RN-06 | No se puede solicitar una reserva para una fecha pasada | Propuesta | RB07 | Schema (422) y servicio (409) — B-04 cerrada |
 | RN-07 | El docente solo puede elegir materias que tiene asignadas | Propuesta | — | — fuera de alcance de la v1 (sin entidades de materia/asignación) |
-| RN-08 | Solo usuarios identificados y activos pueden operar el sistema | Caso | — | ✅ JWT con expiración + control de `status=ACTIVO` en el login |
-| RN-09 | Un recurso dado de baja no se ofrece ni puede solicitarse; su historial se conserva | Propuesta | RB04 | ✅ `available=false` → 409 en `create_request` (baja lógica, D-07) |
-| RN-10 | El docente puede cancelar solo sus solicitudes pendientes o confirmadas (la bibliotecaria, cualquiera) | Propuesta | — | ✅ `PATCH /requests/<id>/cancel` valida dueño + estado + que el horario no haya pasado |
-| RN-11 | La pantalla debe distinguir los estados y nunca mostrar "Reserva realizada" para una solicitud pendiente | Caso | RNF01 | ✅ backend (enum + mensajes) y `Frontend/` con etiquetas por estado (B-15 cerrada) |
-| RN-12 | Toda alta y todo cambio de estado queda registrado con fecha, usuario y estado anterior (auditoría) | Nuevo en v0.2 | RB05 (RNF06) | ✅ `audit_logs` con `old_status`/`new_status` en `CHANGE_STATUS`, `CANCEL_REQUEST`, `AUTO_CANCEL_PENDING` y `NOTIFICATION` (B-09 cerrada) |
-| RN-13 | El turno elegido debe corresponder al módulo elegido (módulo de la mañana con turno Mañana) | Nuevo en v0.2 | RB06 | ✅ `validate_shift_module_consistency` en `CreateRequestSchema` (B-04 cerrada) |
-| RN-14 | Al confirmarse una solicitud, las demás pendientes del mismo recurso+fecha+turno+módulo se auto-cancelan y el docente recibe una notificación | Nuevo en v1.2 | — | ✅ `review_request` → `AUTO_CANCEL_PENDING` + `NOTIFICATION` en `audit_logs` (commit `3bd27b0`) |
+| RN-08 | Solo usuarios identificados y activos pueden operar el sistema | Caso | — | JWT con expiración + control de `status=ACTIVO` en el login |
+| RN-09 | Un recurso dado de baja no se ofrece ni puede solicitarse; su historial se conserva | Propuesta | RB04 | `available=false` → 409 en `create_request` (baja lógica, D-07) |
+| RN-10 | El docente puede cancelar solo sus solicitudes pendientes o confirmadas (la bibliotecaria, cualquiera) | Propuesta | — | `PATCH /requests/<id>/cancel` valida dueño + estado + que el horario no haya pasado |
+| RN-11 | La pantalla debe distinguir los estados y nunca mostrar "Reserva realizada" para una solicitud pendiente | Caso | RNF01 | Backend (enum + mensajes) y `Frontend/` con etiquetas por estado (B-15 cerrada) |
+| RN-12 | Toda alta y todo cambio de estado queda registrado con fecha, usuario y estado anterior (auditoría) | Nuevo en v0.2 | RB05 (RNF06) | `audit_logs` con `old_status`/`new_status` en `CHANGE_STATUS`, `CANCEL_REQUEST`, `AUTO_CANCEL_PENDING` y `NOTIFICATION` (B-09 cerrada) |
+| RN-13 | El turno elegido debe corresponder al módulo elegido (módulo de la mañana con turno Mañana) | Nuevo en v0.2 | RB06 | `validate_shift_module_consistency` en `CreateRequestSchema` (B-04 cerrada) |
+| RN-14 | Al confirmarse una solicitud, las demás pendientes del mismo recurso+fecha+turno+módulo se auto-cancelan y el docente recibe una notificación | Nuevo en v1.2 | — | `review_request` → `AUTO_CANCEL_PENDING` + `NOTIFICATION` en `audit_logs` (commit `3bd27b0`) |
 
 **Correspondencia RB → RN:** RB01→RN-02 · RB02→RN-03 · RB03→RN-04 · RB04→RN-01/RN-05/RN-09 · RB05→RN-12 · RB06→RN-13 · RB07→RN-06.
 
-> Las 7 reglas del caso (RB01–RB07) están todas cubiertas por RN. RN-04 (motivo de rechazo) y RN-07 (materias) tienen partes **fuera de alcance de la v1** — ver `alcance.md` §3. RN-10 quedó **completa** en v1.2 (la cancelación valida dueño, estado y fecha).
+> Las 7 reglas del caso (RB01–RB07) están todas cubiertas por RN. RN-04 (motivo de rechazo) y RN-07 (materias) tienen partes **fuera de alcance de la v1** — ver `alcance.md`, sección 3. RN-10 quedó **completa** en v1.2 (la cancelación valida dueño, estado y fecha).
 
 ## 4. Trazabilidad requisito → historia → prueba
 

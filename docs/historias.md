@@ -5,6 +5,7 @@
 | Campo | Valor |
 |---|---|
 | **Código** | BH-15 |
+| **Grupo** | Grupo D |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
 | **Fecha** | 2026-10-04 |
 | **Versión** | 1.1 |

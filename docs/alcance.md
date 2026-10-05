@@ -5,6 +5,7 @@
 | Campo | Valor |
 |---|---|
 | **Código** | BH-13 |
+| **Grupo** | Grupo D |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
 | **Fecha** | 2026-10-04 |
 | **Versión** | 1.1 – sincronizado con los commits `ba345e7`/`3bd27b0` (cancelación implementada, roles, HU-15/HU-16) |

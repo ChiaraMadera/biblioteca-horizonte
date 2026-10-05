@@ -5,6 +5,7 @@
 | Campo | Valor |
 |---|---|
 | **Código** | BH-18 |
+| **Grupo** | Grupo D |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
 | **Fecha** | 2026-10-04 |
 | **Versión** | 1.2 — sincronizado con los commits `ba345e7`/`3bd27b0` (índice único, Alembic, timestamps con zona horaria) |
@@ -146,22 +147,22 @@ Los cambios de estado registran **`details.old_status` y `details.new_status`** 
 
 | Restricción | ¿Existe? | Implementación |
 |---|---|---|
-| `users.email` único | ✅ | `unique=True` + índice |
-| `users.dni` único | ✅ | `unique=True` |
-| Email duplicado al crear usuario → 409 | ✅ | `user_service.create_user` |
-| Estado inicial `PENDIENTE` | ✅ | default en la columna |
-| Fecha no pasada | ✅ | `CreateRequestSchema.validate_date_not_past` (422) |
-| Turno ↔ módulo coherentes | ✅ | `CreateRequestSchema.validate_shift_module_consistency` (422) |
-| Duplicado al crear → 409 | ✅ | `request_service.create_request` |
-| Duplicado al confirmar → rechazo | ✅ | `request_service.review_request` re-verifica el conflicto |
-| **1 `CONFIRMADA` por recurso+fecha+turno+módulo (índice único en BD)** | ✅ | **`uq_confirmed_request_slot`** (parcial, `WHERE status='CONFIRMADA'`) + `IntegrityError` → 409 |
-| `BH-XXXX` sin colisiones ante concurrencia | ❌ | `SELECT MAX` sin transacción (B-10) |
-| Migraciones de esquema (`migrations/`) | ✅ | Alembic inicializado — `2ccd2ab74c38_initial` |
+| `users.email` único | Sí | `unique=True` + índice |
+| `users.dni` único | Sí | `unique=True` |
+| Email duplicado al crear usuario → 409 | Sí | `user_service.create_user` |
+| Estado inicial `PENDIENTE` | Sí | default en la columna |
+| Fecha no pasada | Sí | `CreateRequestSchema.validate_date_not_past` (422) |
+| Turno ↔ módulo coherentes | Sí | `CreateRequestSchema.validate_shift_module_consistency` (422) |
+| Duplicado al crear → 409 | Sí | `request_service.create_request` |
+| Duplicado al confirmar → rechazo | Sí | `request_service.review_request` re-verifica el conflicto |
+| **1 `CONFIRMADA` por recurso+fecha+turno+módulo (índice único en BD)** | Sí | **`uq_confirmed_request_slot`** (parcial, `WHERE status='CONFIRMADA'`) + `IntegrityError` → 409 |
+| `BH-XXXX` sin colisiones ante concurrencia | No | `SELECT MAX` sin transacción (B-10) |
+| Migraciones de esquema (`migrations/`) | Sí | Alembic inicializado — `2ccd2ab74c38_initial` |
 
-### Estrategia de defensa en profundidad para la regla central (ADR-002) — ✅ completa
+### Estrategia de defensa en profundidad para la regla central (ADR-002) — Completa
 
-1. **Capa de servicio (✅):** `create_request` y `review_request` filtran `status="CONFIRMADA"` por `resource_id + date + shift + module` y rechazan con **409**.
-2. **Capa de datos (✅ — B-02 cerrada):** índice único parcial `uq_confirmed_request_slot` sobre `(resource_id, date, shift, module)` para `status='CONFIRMADA'` (migración Alembic `2ccd2ab74c38_initial`); el `IntegrityError` del commit se revuelve en **409**, de modo que ni un error de código ni una consulta directa a la BD permitan el duplicado.
+1. **Capa de servicio ():** `create_request` y `review_request` filtran `status="CONFIRMADA"` por `resource_id + date + shift + module` y rechazan con **409**.
+2. **Capa de datos (— B-02 cerrada):** índice único parcial `uq_confirmed_request_slot` sobre `(resource_id, date, shift, module)` para `status='CONFIRMADA'` (migración Alembic `2ccd2ab74c38_initial`); el `IntegrityError` del commit se revuelve en **409**, de modo que ni un error de código ni una consulta directa a la BD permitan el duplicado.
 
 ## 4. Datos semilla esperados (según el caso)
 
