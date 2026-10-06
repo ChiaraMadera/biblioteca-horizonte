@@ -7,21 +7,24 @@
 | **Código** | BH-17 |
 | **Grupo** | Grupo D |
 | **Equipo** | Madera Chiara · Riveros Silvio · Lasa Julio · Gonzalez Williams |
-| **Fecha** | 2026-10-04 |
-| **Versión** | 1.3 — sincronizado con los commits `ba345e7`/`3bd27b0`: 21 endpoints, `review` solo `bibliotecaria`, paginación unificada, índice único de respaldo (B-02) |
+| **Fecha** | 2026-10-05 |
+| **Versión** | 1.4 — fuente viva OpenAPI/Swagger (`app/docs/openapi.yaml`, commit `0ae8fa3`); 21 endpoints sin cambios |
 | **Base URL** | `http://localhost:5000` |
 | **Formato** | JSON (`Content-Type: application/json`) |
 | **Autenticación** | `Authorization: Bearer <token JWT>` (excepto login) |
-| **Relacionados** | BH-11 (fuente local) · BH-14 |
+| **Relacionados** | BH-11 (fuente local) · BH-12 (D-11) · BH-14 |
 
 **Historial de cambios**
 
 | Versión | Fecha | Cambio | Autor |
 |---|---|---|---|
+| 1.4 | 2026-10-05 | Se agrega `openapi.yaml` como especificación viva (Swagger UI y colección Postman); las 21 operaciones coinciden con este contrato | Equipo |
 | 1.3 | 2026-10-04 | 21 endpoints, roles, paginación y B-02/B-03/B-06 cerradas + control documental | Equipo |
 | 1.0 | 2026-10-02 | Ingreso al repo (commit 99d53dc) | Equipo |
 
 > Acuerdo de equipo: **frontend y backend usan literalmente los mismos strings** de estados, turnos y módulos. Si uno cambia un valor, cambia el contrato y se documenta aquí.
+
+> **Especificación viva (2026-10-05):** `Backend/app/docs/openapi.yaml` describe las mismas 21 operaciones que este contrato y se sirve en Swagger UI (`http://localhost:5000/api/docs/`) con colección de Postman en `Backend/Biblioteca_Horizonte.postman_collection.json` (D-11). Si cambia una ruta, se actualizan ambos en la misma pasada.
 
 ## 1. Catálogo compartido (fuente única de verdad)
 
